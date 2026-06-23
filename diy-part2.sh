@@ -13,6 +13,9 @@
 # Modify default IP
 sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generate
 
+# Set default theme to Argon
+sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
+
 # Patch Netcore N30 Pro (Netis NX30 V2) DTS file for USB and RNDIS support
 cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
 /* SPDX-License-Identifier: (GPL-2.0-only OR MIT) */

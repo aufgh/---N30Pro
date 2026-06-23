@@ -1,0 +1,156 @@
+#!/bin/bash
+#
+# Copyright (c) 2019-2020 P3TERX <https://p3terx.com>
+#
+# This is free software, licensed under the MIT License.
+# See /LICENSE for more information.
+#
+# https://github.com/P3TERX/Actions-OpenWrt
+# File name: diy-part2.sh
+# Description: OpenWrt DIY script part 2 (After Update feeds)
+#
+
+# Modify default IP
+sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generate
+
+# Patch Netcore N30 Pro (Netis NX30 V2) DTS file for USB and RNDIS support
+cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
+/* SPDX-License-Identifier: (GPL-2.0-only OR MIT) */
+
+/dts-v1/;
+#include "mt7981b-netis-common.dtsi"
+
+/ {
+        model = "netis NX30 V2";
+        compatible = "netis,nx30v2", "mediatek,mt7981";
+
+        aliases {
+                label-mac-device = &gmac0;
+                led-boot = &led_power;
+                led-failsafe = &led_power;
+                led-running = &led_power;
+                led-upgrade = &led_wps;
+        };
+
+        leds {
+                compatible = "gpio-leds";
+
+                led_power: power {
+                        color = <LED_COLOR_ID_BLUE>;
+                        function = LED_FUNCTION_POWER;
+                        gpios = <&pio 4 GPIO_ACTIVE_LOW>;
+                        default-state = "on";
+                };
+
+                internet {
+                        color = <LED_COLOR_ID_BLUE>;
+                        function = LED_FUNCTION_WAN_ONLINE;
+                        gpios = <&pio 7 GPIO_ACTIVE_LOW>;
+                };
+
+                led_wps: wps {
+                        color = <LED_COLOR_ID_BLUE>;
+                        function = LED_FUNCTION_WPS;
+                        gpios = <&pio 5 GPIO_ACTIVE_LOW>;
+                };
+
+                wifi2g {
+                        color = <LED_COLOR_ID_BLUE>;
+                        function = LED_FUNCTION_WLAN_2GHZ;
+                        gpios = <&pio 34 GPIO_ACTIVE_LOW>;
+                        linux,default-trigger = "phy0tpt";
+                };
+
+                wifi5g {
+                        color = <LED_COLOR_ID_BLUE>;
+                        function = LED_FUNCTION_WLAN_5GHZ;
+                        gpios = <&pio 35 GPIO_ACTIVE_LOW>;
+                        linux,default-trigger = "phy1tpt";
+                };
+
+                wan {
+                        color = <LED_COLOR_ID_BLUE>;
+                        function = LED_FUNCTION_WAN;
+                        gpios = <&pio 8 GPIO_ACTIVE_LOW>;
+                };
+        };
+
+        usb_vbus: regulator-usb {
+                compatible = "regulator-fixed";
+                regulator-name = "usb-vbus";
+                regulator-type = <1>; /* REGULATOR_VOLTAGE */
+                regulator-min-microvolt = <5000000>;
+                regulator-max-microvolt = <5000000>;
+                gpios = <&pio 23 GPIO_ACTIVE_HIGH>;
+                enable-active-high;
+                regulator-boot-on;
+        };
+};
+
+&switch {
+        ports {
+                port@0 {
+                        reg = <1>;
+                        label = "lan1";
+                };
+
+                port@1 {
+                        reg = <2>;
+                        label = "lan2";
+                };
+
+                port@2 {
+                        reg = <3>;
+                        label = "lan3";
+                };
+                port@3 {
+                        reg = <4>;
+                        label = "lan4";
+                };
+        };
+};
+
+&u2port0 {
+        status = "okay";
+};
+
+&u3port0 {
+        status = "okay";
+};
+
+&xhci {
+    compatible = "mediatek,mt7986-xhci", "mediatek,mtk-xhci";
+    reg = <0 0x11200000 0 0x2e00>, <0 0x11203e00 0 0x0100>;
+    reg-names = "mac", "ippc";
+    interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>;
+    clocks = <&infracfg CLK_INFRA_IUSB_SYS_CK>,
+             <&infracfg CLK_INFRA_IUSB_CK>,
+             <&infracfg CLK_INFRA_IUSB_133_CK>,
+             <&infracfg CLK_INFRA_IUSB_66M_CK>,
+             <&topckgen CLK_TOP_U2U3_XHCI_SEL>;
+    clock-names = "sys_ck", "ref_ck", "mcu_ck", "dma_ck", "xhci_ck";
+    phys = <&u2port0 PHY_TYPE_USB2>, <&u3port0 PHY_TYPE_USB3>;
+    vbus-supply = <&usb_vbus>;
+    status = "okay";
+};
+
+&usb_phy {
+    status = "okay";
+    u2port0: usb-phy@0 {
+        reg = <0x0 0x700>;
+        clocks = <&topckgen CLK_TOP_USB_FRMCNT_SEL>;
+        clock-names = "ref";
+        #phy-cells = <1>;
+    };
+    u3port0: usb-phy@700 {
+        reg = <0x700 0x900>;
+        clocks = <&topckgen CLK_TOP_USB3_PHY_SEL>;
+        clock-names = "ref";
+        #phy-cells = <1>;
+        mediatek,syscon-type = <&topmisc 0x218 0>;
+        status = "okay";
+    };
+};
+EOF
+
+echo "DTS patch applied successfully!"

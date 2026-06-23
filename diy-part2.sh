@@ -1,23 +1,26 @@
 #!/bin/bash
-#
-# Copyright (c) 2019-2020 P3TERX <https://p3terx.com>
-#
-# This is free software, licensed under the MIT License.
-# See /LICENSE for more information.
-#
-# https://github.com/P3TERX/Actions-OpenWrt
-# File name: diy-part2.sh
-# Description: OpenWrt DIY script part 2 (After Update feeds)
-#
+# ============================================================
+# 磊科 N30 Pro OpenWrt 编译 - Part 2
+# 在 feeds install 之后执行
+# 功能：修改默认设置 + 应用 DTS 补丁（USB 修复）
+# ============================================================
 
-# Modify default IP
+echo "========================================="
+echo "  DIY Part 2: 自定义配置 + DTS 补丁"
+echo "========================================="
+
+# 1. 修改默认 LAN IP 为 192.168.6.1
+echo ">> 修改默认 LAN IP 为 192.168.6.1..."
 sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generate
 
-# Set default theme to Argon
+# 2. 设置默认主题为 Argon
+echo ">> 设置默认主题为 Argon..."
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
-# Patch Netcore N30 Pro (Netis NX30 V2) DTS file for USB and RNDIS support
-cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
+# 3. 应用 DTS 补丁 - 修复 USB 供电 + RNDIS 网络共享
+# 参考: https://blog.csdn.net/hsyxxyg/article/details/161982524
+echo ">> 应用 DTS 补丁（USB 供电 + RNDIS 修复）..."
+cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'DTSEOF'
 /* SPDX-License-Identifier: (GPL-2.0-only OR MIT) */
 
 /dts-v1/;
@@ -78,6 +81,7 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
                 };
         };
 
+        /* USB VBUS 稳压器定义 - 控制 USB 口供电 */
         usb_vbus: regulator-usb {
                 compatible = "regulator-fixed";
                 regulator-name = "usb-vbus";
@@ -87,6 +91,8 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
                 gpios = <&pio 23 GPIO_ACTIVE_HIGH>;
                 enable-active-high;
                 regulator-boot-on;
+                /* 注意: 不开启 regulator-always-on，
+                   否则软重启时无法通过电源循环触发 USB 复位 */
         };
 };
 
@@ -106,6 +112,7 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
                         reg = <3>;
                         label = "lan3";
                 };
+
                 port@3 {
                         reg = <4>;
                         label = "lan4";
@@ -113,14 +120,17 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
         };
 };
 
+/* USB 2.0 PHY 端口 */
 &u2port0 {
         status = "okay";
 };
 
+/* USB 3.0 PHY 端口 */
 &u3port0 {
         status = "okay";
 };
 
+/* xHCI USB 控制器 - 关键配置：时钟与电源参数 */
 &xhci {
     compatible = "mediatek,mt7986-xhci", "mediatek,mtk-xhci";
     reg = <0 0x11200000 0 0x2e00>, <0 0x11203e00 0 0x0100>;
@@ -137,6 +147,7 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
     status = "okay";
 };
 
+/* USB PHY 控制器 - 物理层参数 */
 &usb_phy {
     status = "okay";
     u2port0: usb-phy@0 {
@@ -154,6 +165,10 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
         status = "okay";
     };
 };
-EOF
+DTSEOF
 
-echo "DTS patch applied successfully!"
+echo ">> DTS 补丁应用成功！"
+
+echo "========================================="
+echo "  DIY Part 2 完成！"
+echo "========================================="

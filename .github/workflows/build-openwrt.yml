@@ -37,7 +37,7 @@ jobs:
         haskell: true
         large-packages: true
         docker-images: true
-        swap-storage: true
+        swap-storage: false
 
     - name: 初始化编译环境
       env:

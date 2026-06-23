@@ -18,4 +18,4 @@
 # echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
 
 # Add ua3f source
-git clone https://github.com/Zxilly/UA3F.git package/ua3f
+git clone https://github.com/SunBK201/UA3F.git package/ua3f

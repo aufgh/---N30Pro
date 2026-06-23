@@ -19,3 +19,10 @@
 
 # Add ua3f source
 git clone https://github.com/SunBK201/UA3F.git package/ua3f
+
+# Add OpenClash
+git clone --depth=1 https://github.com/vernesong/OpenClash.git package/OpenClash
+
+# Add Argon Theme
+git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config

@@ -17,7 +17,24 @@ sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generat
 echo ">> 设置默认主题为 Argon..."
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
-# 3. 应用 DTS 补丁 - 修复 USB 供电 + RNDIS 网络共享
+# 3. 自动配置 fw4 (nftables) 的 TTL 固定规则
+echo ">> 注入固定 TTL 防火墙规则..."
+cat << "EOF" >> package/base-files/files/etc/firewall.user
+# 现代版 fw4 (nftables) 固定 TTL
+nft add rule inet fw4 mangle_postrouting ip ttl set 64
+nft add rule inet fw4 mangle_prerouting ip ttl set 64
+EOF
+
+# 修改 firewall 配置以使 fw4 兼容并执行 firewall.user
+cat << "EOF" >> package/network/config/firewall/files/firewall.config
+
+config include
+	option path '/etc/firewall.user'
+	option type 'script'
+	option fw4_compatible '1'
+EOF
+
+# 4. 应用 DTS 补丁 - 修复 USB 供电 + RNDIS 网络共享
 # 参考: https://blog.csdn.net/hsyxxyg/article/details/161982524
 echo ">> 应用 DTS 补丁（USB 供电 + RNDIS 修复）..."
 cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'DTSEOF'

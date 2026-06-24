@@ -15,24 +15,18 @@
 | 插件 | 功能 | 说明 |
 |------|------|------|
 | LuCI + 中文 | 管理界面 | 简体中文 |
-| Argon 主题 | 界面美化 | 现代化深色主题 |
 | mwan3 | 多线多拨 | 校园网多拨 |
 | syncdial | 同步多拨 | 配合 mwan3 |
 | UA3F | 防检测 | 校园网 User-Agent 伪装 |
 | OpenClash | 代理 | 科学上网 |
-| Tailscale | 内网穿透 | P2P 组网 |
 | ZeroTier | 内网穿透 | P2P VPN |
-| WoL | 网络唤醒 | 远程开机 |
-| Samba4 | 文件共享 | SMB 协议 |
-| UPnP | 端口转发 | 自动端口映射 |
-| HD-Idle | 硬盘休眠 | USB 存储节能 |
 
-## ⚡ USB 修复
+## ⚡ USB 支持
 
-已通过 DTS 补丁修复以下问题：
-- ✅ USB 3.0 正常供电
-- ✅ RNDIS 网络共享（随身 WiFi）
-- ✅ USB 存储挂载（支持 ext4/NTFS/FAT32）
+已通过 DTS 补丁修复底层的 USB 硬件支持。
+由于精简了固件体积，默认未安装 USB 相关内核包。如需使用 USB，请在系统内自行安装以下组件：
+- `kmod-usb3`, `kmod-usb-storage` (USB 存储)
+- `kmod-usb-net-rndis` (随身 WiFi 共享)
 
 ## 🚀 使用方法
 

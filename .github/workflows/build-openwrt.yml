@@ -155,18 +155,11 @@ jobs:
         echo "### 已安装插件" >> release.txt
         echo "| 插件 | 功能 |" >> release.txt
         echo "|------|------|" >> release.txt
-        echo "| LuCI + Argon 主题 | 中文管理界面 |" >> release.txt
+        echo "| LuCI | 中文管理界面 |" >> release.txt
         echo "| mwan3 + syncdial | 多线多拨 |" >> release.txt
         echo "| UA3F | 校园网防检测 |" >> release.txt
         echo "| OpenClash | 代理 |" >> release.txt
-        echo "| Tailscale | 内网穿透 |" >> release.txt
         echo "| ZeroTier | P2P VPN |" >> release.txt
-        echo "| WoL | 网络唤醒 |" >> release.txt
-        echo "| Samba4 | 文件共享 |" >> release.txt
-        echo "| UPnP | 端口转发 |" >> release.txt
-        echo "" >> release.txt
-        echo "### ⚡ USB 支持" >> release.txt
-        echo "已修复 DTS，支持 USB 3.0 供电、RNDIS 网络共享、USB 存储" >> release.txt
         echo "" >> release.txt
         echo "### 默认设置" >> release.txt
         echo "- 管理地址: \`192.168.6.1\`" >> release.txt

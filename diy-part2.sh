@@ -13,9 +13,6 @@ echo "========================================="
 echo ">> 修改默认 LAN IP 为 192.168.6.1..."
 sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generate
 
-# 2. 设置默认主题为 Argon
-echo ">> 设置默认主题为 Argon..."
-sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
 # 3. 应用 DTS 补丁 - 修复 USB 供电 + RNDIS 网络共享
 # 参考: https://blog.csdn.net/hsyxxyg/article/details/161982524

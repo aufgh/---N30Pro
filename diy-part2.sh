@@ -9,11 +9,6 @@ echo "========================================="
 echo "  DIY Part 2: 自定义配置 + DTS 补丁"
 echo "========================================="
 
-# 0. 清理第三方仓库中的冲突包（优先使用官方的 luci-app-upnp，它完美兼容 fw4/nftables）
-echo ">> 清理 smpackage 中的冲突插件 luci-app-upnp..."
-rm -rf feeds/smpackage/luci-app-upnp
-
-
 # 1. 自动配置 fw4 (nftables) 的 TTL 固定规则 (包含 IPv4 和 IPv6)
 echo ">> 注入固定 TTL (IPv4) 和 Hoplimit (IPv6) 防火墙规则..."
 cat << "EOF" >> package/base-files/files/etc/firewall.user

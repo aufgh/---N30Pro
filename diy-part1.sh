@@ -9,9 +9,8 @@ echo "========================================="
 echo "  DIY Part 1: 添加第三方插件源"
 echo "========================================="
 
-# 1. 添加常用第三方软件源 (kenzok8/small-package 包含 OpenClash, Argon 等大量常用插件)
-echo ">> 添加 kenzok8/small-package 软件源..."
-echo 'src-git smpackage https://github.com/kenzok8/small-package' >> feeds.conf.default
+# 1. 移除第三方大礼包，直接使用官方仓库自带的优质插件
+# (官方仓库已自带 OpenClash 等主流插件)
 
 # 2. UA-Mask (防检测)
 echo ">> 添加 UA-Mask..."

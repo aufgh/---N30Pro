@@ -1,11 +1,11 @@
-name: Build OpenWrt for Netcore N30 Pro
+name: Build ImmortalWrt for Netcore N30 Pro
 
 on:
   repository_dispatch:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/openwrt/openwrt.git
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
   REPO_BRANCH: openwrt-25.12
   TZ: Asia/Shanghai
 
@@ -78,7 +78,7 @@ jobs:
       uses: actions/upload-artifact@v4
       if: steps.organize.outputs.status == 'success'
       with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        name: ImmortalWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
     - name: 生成 Release 并发布
@@ -87,7 +87,7 @@ jobs:
       with:
         tag_name: v${{ env.FILE_DATE }}
         body: |
-          ## 📦 磊科 N30 Pro OpenWrt 固件
+          ## 📦 磊科 N30 Pro ImmortalWrt 固件
           
           ### 编译信息
           - 🌿 源码分支: ${{ env.REPO_BRANCH }}
@@ -98,12 +98,11 @@ jobs:
           |------|------|
           | LuCI + Argon 主题 | 中文管理界面 |
           | mwan3 + syncdial | 多线多拨 |
-          | UA3F | 校园网防检测 |
+          | UA2F/UAMASK | 防检测修改 |
           | OpenClash | 代理 |
-          | ZeroTier | P2P VPN |
           
           ### ⚡ USB 支持
-          已修复 DTS，需自行在软件包安装相关依赖 (kmod-usb3, kmod-usb-storage)
+          已修复 DTS，包含 USB 与 RNDIS 支持模块
           
           ### 默认设置
           - 管理地址: `192.168.6.1`

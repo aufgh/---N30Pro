@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# 磊科 N30 Pro OpenWrt 编译 - Part 2
+# 磊科 N30 Pro ImmortalWrt 编译 - Part 2
 # 在 feeds install 之后执行
 # 功能：修改默认设置 + 应用 DTS 补丁（USB 修复）
 # ============================================================
@@ -9,20 +9,14 @@ echo "========================================="
 echo "  DIY Part 2: 自定义配置 + DTS 补丁"
 echo "========================================="
 
-# 1. 修改默认 LAN IP 为 192.168.6.1
-echo ">> 修改默认 LAN IP 为 192.168.6.1..."
-sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generate
-
-# 2. 设置默认主题为 Argon
-echo ">> 设置默认主题为 Argon..."
-sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
-
-# 3. 自动配置 fw4 (nftables) 的 TTL 固定规则
-echo ">> 注入固定 TTL 防火墙规则..."
+# 1. 自动配置 fw4 (nftables) 的 TTL 固定规则 (包含 IPv4 和 IPv6)
+echo ">> 注入固定 TTL (IPv4) 和 Hoplimit (IPv6) 防火墙规则..."
 cat << "EOF" >> package/base-files/files/etc/firewall.user
-# 现代版 fw4 (nftables) 固定 TTL
+# 现代版 fw4 (nftables) 固定 TTL 和 Hoplimit
 nft add rule inet fw4 mangle_postrouting ip ttl set 64
 nft add rule inet fw4 mangle_prerouting ip ttl set 64
+nft add rule inet fw4 mangle_postrouting ip6 hoplimit set 64
+nft add rule inet fw4 mangle_prerouting ip6 hoplimit set 64
 EOF
 
 # 修改 firewall 配置以使 fw4 兼容并执行 firewall.user
@@ -35,70 +29,19 @@ config include
 EOF
 
 # 4. 应用 DTS 补丁 - 修复 USB 供电 + RNDIS 网络共享
-# 参考: https://blog.csdn.net/hsyxxyg/article/details/161982524
+# 由于 ImmortalWrt 的内核版本可能会更新（如 6.1 或 6.6），DTS 路径会改变。
+# 并且完全替换整个 DTS 文件可能会导致与 ImmortalWrt 其它配置（如 LED、交换机）冲突。
+# 因此我们采用动态查找并【追加重写】的方式，保证安全兼容。
 echo ">> 应用 DTS 补丁（USB 供电 + RNDIS 修复）..."
-cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'DTSEOF'
-/* SPDX-License-Identifier: (GPL-2.0-only OR MIT) */
 
-/dts-v1/;
-#include "mt7981b-netis-common.dtsi"
+DTS_FILE=$(find target/linux/mediatek -name "mt7981b-netis-nx30v2.dts" -print -quit)
 
+if [ -n "$DTS_FILE" ]; then
+    echo ">> 找到 DTS 文件: $DTS_FILE，正在追加 USB 修复节点..."
+    cat << "EOF" >> "$DTS_FILE"
+
+// ======== 自定义 USB 供电与 RNDIS 修复补丁 (追加覆盖) ========
 / {
-        model = "netis NX30 V2";
-        compatible = "netis,nx30v2", "mediatek,mt7981";
-
-        aliases {
-                label-mac-device = &gmac0;
-                led-boot = &led_power;
-                led-failsafe = &led_power;
-                led-running = &led_power;
-                led-upgrade = &led_wps;
-        };
-
-        leds {
-                compatible = "gpio-leds";
-
-                led_power: power {
-                        color = <LED_COLOR_ID_BLUE>;
-                        function = LED_FUNCTION_POWER;
-                        gpios = <&pio 4 GPIO_ACTIVE_LOW>;
-                        default-state = "on";
-                };
-
-                internet {
-                        color = <LED_COLOR_ID_BLUE>;
-                        function = LED_FUNCTION_WAN_ONLINE;
-                        gpios = <&pio 7 GPIO_ACTIVE_LOW>;
-                };
-
-                led_wps: wps {
-                        color = <LED_COLOR_ID_BLUE>;
-                        function = LED_FUNCTION_WPS;
-                        gpios = <&pio 5 GPIO_ACTIVE_LOW>;
-                };
-
-                wifi2g {
-                        color = <LED_COLOR_ID_BLUE>;
-                        function = LED_FUNCTION_WLAN_2GHZ;
-                        gpios = <&pio 34 GPIO_ACTIVE_LOW>;
-                        linux,default-trigger = "phy0tpt";
-                };
-
-                wifi5g {
-                        color = <LED_COLOR_ID_BLUE>;
-                        function = LED_FUNCTION_WLAN_5GHZ;
-                        gpios = <&pio 35 GPIO_ACTIVE_LOW>;
-                        linux,default-trigger = "phy1tpt";
-                };
-
-                wan {
-                        color = <LED_COLOR_ID_BLUE>;
-                        function = LED_FUNCTION_WAN;
-                        gpios = <&pio 8 GPIO_ACTIVE_LOW>;
-                };
-        };
-
-        /* USB VBUS 稳压器定义 - 控制 USB 口供电 */
         usb_vbus: regulator-usb {
                 compatible = "regulator-fixed";
                 regulator-name = "usb-vbus";
@@ -113,36 +56,10 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'DTSEOF'
         };
 };
 
-&switch {
-        ports {
-                port@0 {
-                        reg = <1>;
-                        label = "lan1";
-                };
-
-                port@1 {
-                        reg = <2>;
-                        label = "lan2";
-                };
-
-                port@2 {
-                        reg = <3>;
-                        label = "lan3";
-                };
-
-                port@3 {
-                        reg = <4>;
-                        label = "lan4";
-                };
-        };
-};
-
-/* USB 2.0 PHY 端口 */
 &u2port0 {
         status = "okay";
 };
 
-/* USB 3.0 PHY 端口 */
 &u3port0 {
         status = "okay";
 };
@@ -182,9 +99,12 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'DTSEOF'
         status = "okay";
     };
 };
-DTSEOF
-
-echo ">> DTS 补丁应用成功！"
+// ======== 补丁结束 ========
+EOF
+    echo ">> DTS 补丁自适应追加成功！"
+else
+    echo ">> [错误] 未找到 mt7981b-netis-nx30v2.dts 文件！请检查分支和目标设备名。"
+fi
 
 echo "========================================="
 echo "  DIY Part 2 完成！"

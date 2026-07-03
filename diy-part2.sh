@@ -1,23 +1,6 @@
 #!/bin/bash
 # Description: OpenWrt DIY script part 2 (After Update feeds)
 
-echo ">> Injecting TTL fix for fw4 (nftables)..."
-mkdir -p package/base-files/files/etc/nftables.d
-cat > package/base-files/files/etc/nftables.d/10-custom-ttl.nft << 'EOF'
-table inet custom_ttl {
-    chain prerouting {
-        type filter hook prerouting priority mangle; policy accept;
-        iifname "wan" ip ttl set 65
-        iifname "wan" ip6 hoplimit set 65
-    }
-    chain postrouting {
-        type filter hook postrouting priority mangle; policy accept;
-        oifname != "br-lan" ip ttl set 65
-        oifname != "br-lan" ip6 hoplimit set 65
-    }
-}
-EOF
-
 echo ">> Fixing USB and RNDIS based on CSDN article..."
 cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
 /* SPDX-License-Identifier: (GPL-2.0-only OR MIT) */

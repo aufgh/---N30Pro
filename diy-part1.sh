@@ -1,21 +1,12 @@
 #!/bin/bash
-# ============================================================
-# 磊科 N30 Pro ImmortalWrt 编译 - Part 1
-# 在 feeds update 之前执行
-# 功能：添加第三方插件源
-# ============================================================
+# Description: OpenWrt DIY script part 1 (Before Update feeds)
 
-echo "========================================="
-echo "  DIY Part 1: 添加第三方插件源"
-echo "========================================="
+echo ">> Adding UA3F..."
+git clone --depth=1 https://github.com/Zxilly/UA3F.git package/UA3F
 
-# 1. 移除第三方大礼包，直接使用官方仓库自带的优质插件
-# (官方仓库已自带 OpenClash 等主流插件)
+echo ">> Adding iStore..."
+git clone --depth=1 https://github.com/linkease/istore.git package/istore
+git clone --depth=1 https://github.com/linkease/istore-ui.git package/istore-ui
 
-# 2. UA-Mask (防检测)
-echo ">> 添加 UA-Mask..."
-git clone --depth=1 https://github.com/Zesuy/UA-Mask.git package/uamask
-
-echo "========================================="
-echo "  DIY Part 1 完成！"
-echo "========================================="
+echo ">> Adding luci-app-syncdial (from ImmortalWrt)..."
+svn export https://github.com/immortalwrt/luci/trunk/applications/luci-app-syncdial package/luci-app-syncdial

@@ -1,11 +1,11 @@
-name: Build ImmortalWrt for Netcore N30 Pro
+name: Build OpenWrt for Netcore N30 Pro
 
 on:
   repository_dispatch:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
+  REPO_URL: https://github.com/openwrt/openwrt.git
   REPO_BRANCH: openwrt-25.12
   TZ: Asia/Shanghai
 
@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: 检出代码
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: 初始化编译环境
+    - name: Initialize environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -30,42 +30,40 @@ jobs:
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
 
-    - name: 克隆源码并准备环境
+    - name: Clone source code
       run: |
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         chmod +x diy-part1.sh diy-part2.sh
 
-    - name: 更新并安装 feeds
+    - name: Load custom feeds
       run: |
         cd openwrt
         ../diy-part1.sh
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: 加载自定义配置
+    - name: Load custom configuration
       run: |
         mv .config openwrt/.config
         cd openwrt
         ../diy-part2.sh
         make defconfig
 
-    - name: 下载所需软件包
+    - name: Download package
       run: |
         cd openwrt
         make download -j8
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: 编译固件
+    - name: Compile the firmware
       id: compile
       run: |
         cd openwrt
         make -j$(nproc) || make -j1 V=s
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-    - name: 整理固件
+    - name: Organize files
       id: organize
       if: steps.compile.outputs.status == 'success'
       run: |
@@ -74,37 +72,9 @@ jobs:
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: 上传固件至 Artifacts
-      uses: actions/upload-artifact@v4
-      if: steps.organize.outputs.status == 'success'
-      with:
-        name: ImmortalWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}
-
-    - name: 生成 Release 并发布
+    - name: Upload firmware to release
       uses: softprops/action-gh-release@v2
       if: steps.organize.outputs.status == 'success'
       with:
-        tag_name: v${{ env.FILE_DATE }}
-        body: |
-          ## 📦 磊科 N30 Pro ImmortalWrt 固件
-          
-          ### 编译信息
-          - 🌿 源码分支: ${{ env.REPO_BRANCH }}
-          - 📌 设备: Netcore N30 Pro (Netis NX30 V2)
-          
-          ### 已安装插件
-          | 插件 | 功能 |
-          |------|------|
-          | LuCI + Argon 主题 | 中文管理界面 |
-          | mwan3 + syncdial | 多线多拨 |
-          | UA2F/UAMASK | 防检测修改 |
-          | OpenClash | 代理 |
-          
-          ### ⚡ USB 支持
-          已修复 DTS，包含 USB 与 RNDIS 支持模块
-          
-          ### 默认设置
-          - 管理地址: `192.168.6.1`
-          - 默认密码: 无（首次登录设置）
+        tag_name: openwrt_n30pro_${{ env.FILE_DATE }}
         files: ${{ env.FIRMWARE }}/*

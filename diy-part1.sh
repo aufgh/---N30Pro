@@ -1,8 +1,8 @@
 #!/bin/bash
 # Description: OpenWrt DIY script part 1 (Before Update feeds)
 
-echo ">> Adding UA3F..."
-git clone --depth=1 https://github.com/SunBK201/UA3F.git package/UA3F
+echo ">> Adding UAMask..."
+git clone --depth=1 https://github.com/Zesuy/UA-Mask.git package/UA-Mask
 
 echo ">> Adding luci-app-multi-login..."
 git clone --depth=1 https://github.com/Zesuy/luci-app-multi-login.git package/luci-app-multi-login

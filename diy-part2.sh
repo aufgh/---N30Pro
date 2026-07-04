@@ -141,7 +141,7 @@ cat > target/linux/mediatek/dts/mt7981b-netis-nx30v2.dts << 'EOF'
 EOF
 
 echo ">> Fixing iStore apk update bug..."
-sed -i '/istore/d' package/istore/luci-app-store/root/etc/apk/repositories.d/* 2>/dev/null || true
+sed -i '/istore/d' feeds/istore/luci-app-store/root/etc/apk/repositories.d/* 2>/dev/null || true
 
 echo ">> Forcing zh_cn language..."
 mkdir -p package/base-files/files/etc/uci-defaults

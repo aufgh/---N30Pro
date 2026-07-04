@@ -4,9 +4,8 @@
 echo ">> Adding UA3F..."
 git clone --depth=1 https://github.com/SunBK201/UA3F.git package/UA3F
 
-echo ">> Adding iStore..."
-git clone --depth=1 https://github.com/linkease/istore.git package/istore
-git clone --depth=1 https://github.com/linkease/istore-ui.git package/istore-ui
+echo ">> Adding iStore feed..."
+echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
 
 echo ">> Adding luci-app-multi-login..."
 git clone --depth=1 https://github.com/Zesuy/luci-app-multi-login.git package/luci-app-multi-login

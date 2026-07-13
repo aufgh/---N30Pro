@@ -15,19 +15,21 @@
 | 插件 | 功能 | 说明 |
 |------|------|------|
 | LuCI + 中文 | 管理界面 | 简体中文 |
-| Argon 主题 | 界面美化 | 现代化深色主题 |
 | mwan3 | 多线多拨 | 校园网多拨 |
 | syncdial | 同步多拨 | 配合 mwan3 |
-| UA3F | 防检测 | 校园网 User-Agent 伪装 |
-| OpenClash | 代理 | 科学上网 |
-| ZeroTier | 内网穿透 | P2P VPN |
+| MultiLogin | 自动认证 | 多 WAN 校园网自动登录 |
+| UA-Mask | 防检测 | 校园网 User-Agent 伪装 |
+| OpenClash | 代理 | Firewall4/nftables 模式 |
+| OpenList | 文件管理 | OpenList 服务及 LuCI 界面 |
 
 ## ⚡ USB 支持
 
 已通过 DTS 补丁修复底层的 USB 硬件支持。
-由于精简了固件体积，默认未安装 USB 相关内核包。如需使用 USB，请在系统内自行安装以下组件：
-- `kmod-usb3`, `kmod-usb-storage` (USB 存储)
-- `kmod-usb-net-rndis` (随身 WiFi 共享)
+固件已包含 USB 2.0/3.0、USB 存储及 RNDIS/CDC/MBIM/QMI 网络设备支持。
+
+## OpenClash 说明
+
+OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，不包含旧版 iptables 依赖。固件包含 LuCI 插件及完整运行依赖；首次使用时请在 OpenClash 的版本更新页面选择 `linux-arm64` 并下载 Mihomo 核心。
 
 ## 🚀 使用方法
 
@@ -38,15 +40,11 @@
 3. 选择 **Build OpenWrt for Netcore N30 Pro**
 4. 点击 **Run workflow**
 5. 等待编译完成（约 2-4 小时）
-6. 在 Artifacts 或 Releases 中下载固件
-
-### 方式二：SSH 调试模式
-
-运行 workflow 时将 SSH 参数设为 `true`，可以通过 SSH 连接到编译环境，手动执行 `make menuconfig` 调整配置。
+6. 在 Releases 中下载固件
 
 ## 🔧 默认设置
 
-- 管理地址：`192.168.6.1`
+- 管理地址：使用 OpenWrt 默认设置
 - 默认密码：无（首次登录自行设置）
 
 ## 📁 文件说明

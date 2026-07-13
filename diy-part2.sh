@@ -151,11 +151,9 @@ EOF
 echo ">> Injecting custom TTL/Hoplimit rules..."
 mkdir -p package/base-files/files/etc/nftables.d
 cat > package/base-files/files/etc/nftables.d/10-custom-ttl.nft << 'EOF'
-table inet mangle {
-    chain postrouting {
-        type filter hook postrouting priority mangle; policy accept;
-        ip ttl set 64
-        ip6 hoplimit set 64
-    }
+chain custom_ttl_postrouting {
+    type filter hook postrouting priority mangle; policy accept;
+    ip ttl set 64
+    ip6 hoplimit set 64
 }
 EOF

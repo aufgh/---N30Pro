@@ -1,0 +1,92 @@
+diff --git a/root/usr/libexec/rpcd/multilogin b/root/usr/libexec/rpcd/multilogin
+--- a/root/usr/libexec/rpcd/multilogin
++++ b/root/usr/libexec/rpcd/multilogin
+@@ -166,6 +166,13 @@
+                 done
+ 
+                 # --- Create new configs ---
++                # OpenWrt 25.12's global DUID makes all macvlan clients share
++                # one identity. Campus networks commonly require each MAC to
++                # keep an independent DHCP identity.
++                uci -q delete network.globals.dhcp_default_duid
++                uci -q set network.wan.disabled=1
++                uci -q set network.wan6.disabled=1
++
+                 i=1
+                 while [ "$i" -le "$COUNT" ]; do
+                     MACVLAN_DEV="auto_${BASE_IF}_${i}"
+@@ -183,7 +190,7 @@
+                     uci set "network.$MACVLAN_DEV.ifname=$BASE_IF"
+                     uci set "network.$MACVLAN_DEV.name=$MACVLAN_DEV"
+                     uci set "network.$MACVLAN_DEV.mode=private"
+-                    uci set "network.$MACVLAN_DEV.ipv6=0"
++                    uci set "network.$MACVLAN_DEV.ipv6=1"
+ 
+                     # Network: logical DHCP interface
+                     uci set "network.$LOGICAL_IF=interface"
+@@ -191,9 +198,20 @@
+                     uci set "network.$LOGICAL_IF.device=$MACVLAN_DEV"
+                     uci set "network.$LOGICAL_IF.metric=$METRIC"
+ 
++                    # Every authenticated macvlan gets its own DHCPv6 client.
++                    IPV6_IF="${LOGICAL_IF}_6"
++                    uci set "network.$IPV6_IF=interface"
++                    uci set "network.$IPV6_IF.proto=dhcpv6"
++                    uci set "network.$IPV6_IF.device=$MACVLAN_DEV"
++                    uci set "network.$IPV6_IF.metric=$((20 + i))"
++                    uci set "network.$IPV6_IF.reqaddress=try"
++                    uci set "network.$IPV6_IF.reqprefix=no"
++                    uci set "network.$IPV6_IF.multipath=off"
++
+                     # Firewall: add to wan zone
+                     if [ -n "$WAN_ZONE" ]; then
+                         uci add_list "firewall.$WAN_ZONE.network=$LOGICAL_IF"
++                        uci add_list "firewall.$WAN_ZONE.network=$IPV6_IF"
+                     fi
+ 
+                     # mwan3: tracking interface
+diff --git a/etc/multilogin/quick_setup.sh b/etc/multilogin/quick_setup.sh
+--- a/etc/multilogin/quick_setup.sh
++++ b/etc/multilogin/quick_setup.sh
+@@ -15,6 +15,12 @@
+ 
+ echo "Starting configuration for $COUNT interfaces based on $BASE_IF..."
+ 
++# Keep every macvlan on its own DHCP identity. The physical WAN interfaces
++# are not portal-authenticated and must not create extra client sessions.
++uci -q delete network.globals.dhcp_default_duid
++uci -q set network.wan.disabled='1'
++uci -q set network.wan6.disabled='1'
++
+ # 1. Cleanup existing `auto_` configs
+ echo "Cleaning up old auto_ configurations..."
+ for type in network firewall mwan3; do
+@@ -69,7 +75,8 @@
+     uci set network.$MACVLAN_DEV=device
+     uci set network.$MACVLAN_DEV.type='macvlan'
+     uci set network.$MACVLAN_DEV.ifname="$BASE_IF"
+-    uci set network.$MACVLAN_DEV.mode='vepa'
++    uci set network.$MACVLAN_DEV.mode='private'
++    uci set network.$MACVLAN_DEV.ipv6='1'
+ 
+     # Create logical interface
+     uci set network.$LOGICAL_IF=interface
+@@ -77,6 +84,17 @@
+     uci set network.$LOGICAL_IF.device="$MACVLAN_DEV"
+     uci set network.$LOGICAL_IF.metric="$METRIC"
+-    
++
++    # Every DHCPv6 interface shares its authenticated macvlan.
++    IPV6_IF="${LOGICAL_IF}_6"
++    uci set network.$IPV6_IF=interface
++    uci set network.$IPV6_IF.proto='dhcpv6'
++    uci set network.$IPV6_IF.device="$MACVLAN_DEV"
++    uci set network.$IPV6_IF.metric="$((20 + i))"
++    uci set network.$IPV6_IF.reqaddress='try'
++    uci set network.$IPV6_IF.reqprefix='no'
++    uci set network.$IPV6_IF.multipath='off'
++    NEW_INTERFACES="$NEW_INTERFACES $IPV6_IF"
++
+     NEW_INTERFACES="$NEW_INTERFACES $LOGICAL_IF"
+ 
+     # --- MWAN3 ---

@@ -1,6 +1,15 @@
 name: Build OpenWrt for Netcore N30 Pro
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.config'
+      - 'diy-part1.sh'
+      - 'diy-part2.sh'
+      - 'patches/**'
+      - '.github/workflows/build-openwrt.yml'
   repository_dispatch:
   workflow_dispatch:
 
@@ -51,7 +60,13 @@ jobs:
         ../diy-part2.sh
         make defconfig
         required_configs=(
-          CONFIG_PACKAGE_UAmask=y
+          CONFIG_PACKAGE_ua3f=y
+          CONFIG_PACKAGE_kmod-nft-queue=y
+          CONFIG_PACKAGE_kmod-nf-conntrack-netlink=y
+          CONFIG_PACKAGE_luci-app-multilogin=y
+          CONFIG_PACKAGE_mwan3=y
+          CONFIG_PACKAGE_luci-app-mwan3=y
+          CONFIG_PACKAGE_luci-app-syncdial=y
           CONFIG_PACKAGE_luci-app-openclash=y
           CONFIG_PACKAGE_firewall4=y
           CONFIG_PACKAGE_nftables-json=y
@@ -71,6 +86,10 @@ jobs:
           CONFIG_PACKAGE_luci-compat=y
           CONFIG_PACKAGE_kmod-inet-diag=y
           CONFIG_PACKAGE_kmod-nft-tproxy=y
+          CONFIG_PACKAGE_luci-proto-ipv6=y
+          CONFIG_PACKAGE_odhcp6c=y
+          CONFIG_PACKAGE_odhcpd-ipv6only=y
+          CONFIG_PACKAGE_kmod-macvlan=y
           CONFIG_PACKAGE_openlist=y
           CONFIG_PACKAGE_luci-app-openlist=y
         )
@@ -88,6 +107,10 @@ jobs:
           echo "::error::ZeroTier must not be included"
           exit 1
         fi
+        if grep -Eq '^CONFIG_PACKAGE_(UAmask|luci-app-uamask)=[ym]$' .config; then
+          echo "::error::UA-Mask must not be included alongside UA3F"
+          exit 1
+        fi
 
     - name: Download package
       run: |
@@ -101,7 +124,8 @@ jobs:
         cd openwrt
         make -j$(nproc) || make -j1 V=s
         required_artifacts=(
-          'UAmask-*.apk'
+          'ua3f-*.apk'
+          'luci-app-multilogin-*.apk'
           'luci-app-openclash-*.apk'
           'openlist-*.apk'
           'luci-app-openlist-*.apk'
@@ -114,6 +138,21 @@ jobs:
           fi
           echo "Verified package: $artifact"
         done
+        manifest="$(find bin/targets -type f -name '*.manifest' -print -quit)"
+        if [ -z "$manifest" ]; then
+          echo "::error::Firmware package manifest is missing"
+          exit 1
+        fi
+        for package in ua3f luci-app-multilogin luci-app-openclash openlist luci-app-openlist; do
+          grep -Eq "^${package} - " "$manifest" || {
+            echo "::error::Required package is missing from the firmware: $package"
+            exit 1
+          }
+        done
+        if grep -Eiq '^(UAmask|luci-app-uamask) - ' "$manifest"; then
+          echo "::error::UA-Mask was found in the firmware"
+          exit 1
+        fi
         echo "status=success" >> $GITHUB_OUTPUT
         echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 

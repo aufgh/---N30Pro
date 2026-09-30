@@ -1,0 +1,105 @@
+diff --git a/etc/multilogin/login.sh b/etc/multilogin/login.sh
+index 4d00e2b..3fc64f0 100755
+--- a/etc/multilogin/login.sh
++++ b/etc/multilogin/login.sh
+@@ -288,7 +288,9 @@ check_status() {
+ 
+     case "$result" in
+         1)
+-            log 1 "当前已认证，无需重复登录"
++            if [ "${MULTILOGIN_QUIET_STATUS:-0}" != "1" ]; then
++                log 1 "当前已认证，无需重复登录"
++            fi
+             return 0
+             ;;
+         0)
+diff --git a/etc/multilogin/login_control.bash b/etc/multilogin/login_control.bash
+index cb87101..b1a4bc2 100644
+--- a/etc/multilogin/login_control.bash
++++ b/etc/multilogin/login_control.bash
+@@ -2,7 +2,7 @@
+ 
+ # Implementation logic:
+ # 1. Load multiple login instances from UCI config.
+-# 2. Main loop checks each interface status and attempts login if offline.
++# 2. Main loop verifies the authentication state of every tracked interface.
+ 
+ # Login script path
+ LOGIN_SCRIPT_PATH="/etc/multilogin/login.sh"
+@@ -11,6 +11,7 @@ LOGIN_SCRIPT_PATH="/etc/multilogin/login.sh"
+ INITIAL_RETRY_DELAY=4
+ MAX_RETRY_DELAY=16384
+ ALREADY_LOGGED_DELAY=16
++AUTH_CHECK_INTERVAL=60
+ MAIN_LOOP_SLEEP=5
+ LOG_LEVEL="info"
+ 
+@@ -74,9 +75,9 @@ login_interface() {
+     return 3
+   }
+ 
+-  log "info" "$logical_interface Attempting login... (Account: $account, UA: $ua_type, IPv6 IF: ${v6face:-none})"
++  log "debug" "$logical_interface Checking authentication state..."
+   
+-  sh "$login_script" --mwan3 "$logical_interface" --account "$account" --password "$password" --ua-type "$ua_type" --v6face "$v6face" >/tmp/login_output_$logical_interface 2>&1
++  MULTILOGIN_QUIET_STATUS=1 sh "$login_script" --mwan3 "$logical_interface" --account "$account" --password "$password" --ua-type "$ua_type" --v6face "$v6face" >/tmp/login_output_$logical_interface 2>&1
+   local login_result=$?
+   local login_output=$(cat /tmp/login_output_$logical_interface 2>/dev/null)
+   rm -f /tmp/login_output_$logical_interface
+@@ -95,8 +96,8 @@ login_interface() {
+       return 1
+       ;;
+     2)
+-      log "info" "$logical_interface Already logged in, will check again in ${ALREADY_LOGGED_DELAY}s"
+-      eval "$delay_var_name=$ALREADY_LOGGED_DELAY"
++      log "debug" "$logical_interface Already logged in, will check again in ${AUTH_CHECK_INTERVAL}s"
++      eval "$delay_var_name=$AUTH_CHECK_INTERVAL"
+       return 2
+       ;;
+     *)
+@@ -132,6 +133,7 @@ main() {
+   MAIN_LOOP_SLEEP=$(uci -q get multilogin.global.check_interval || echo $MAIN_LOOP_SLEEP)
+   MAX_RETRY_DELAY=$(uci -q get multilogin.global.max_retry_delay || echo $MAX_RETRY_DELAY)
+   ALREADY_LOGGED_DELAY=$(uci -q get multilogin.global.already_logged_delay || echo $ALREADY_LOGGED_DELAY)
++  AUTH_CHECK_INTERVAL=$(uci -q get multilogin.global.auth_check_interval || echo $AUTH_CHECK_INTERVAL)
+   LOG_LEVEL=$(uci -q get multilogin.global.log_level || echo $LOG_LEVEL)
+ 
+   # Define arrays
+@@ -219,32 +221,23 @@ main() {
+         continue
+       fi
+       
+-      # Get the specific line for the interface
++      # Use mwan3 only to confirm that the interface exists and tracking is active.
++      # A captive portal can still answer ping before authentication, so mwan3's
++      # online state is not sufficient to decide whether login is required.
+       local interface_line=$(echo "$mwan3_status_output" | grep "interface $interface ")
+       
+-      # If line is empty, interface doesn't exist in mwan3
+       if [ -z "$interface_line" ]; then
+         log "debug" "Interface '$interface' not found in mwan3 status, skipping."
+         continue
+       fi
+ 
+-      # **FIX 2: Check for 'tracking is down'**
+       if echo "$interface_line" | grep -q "tracking is down"; then
+         log "debug" "Interface '$interface' tracking is down, skipping login attempt."
+         continue
+       fi
+ 
+-      # **FIX 1: Correctly parse status**
+-      local interface_status=$(echo "$interface_line" | awk '{print $4}')
+-
+-      if [[ "$interface_status" == "offline" ]]; then
+-        log "info" "$interface detected as offline, preparing to login."
+-        login_interface "$interface" "${accounts[$i]}" "${passwords[$i]}" "${ua_types[$i]}" "${v6faces[$i]}" "$LOGIN_SCRIPT_PATH" "delays[$i]"
+-        last_login_time[$i]=$current_time
+-      elif [[ "$interface_status" == "online" && ${delays[$i]} -ne $INITIAL_RETRY_DELAY ]]; then
+-        log "debug" "$interface is online, resetting its delay."
+-        delays[$i]=$INITIAL_RETRY_DELAY
+-      fi
++      login_interface "$interface" "${accounts[$i]}" "${passwords[$i]}" "${ua_types[$i]}" "${v6faces[$i]}" "$LOGIN_SCRIPT_PATH" "delays[$i]"
++      last_login_time[$i]=$current_time
+     done
+     
+     sleep $MAIN_LOOP_SLEEP

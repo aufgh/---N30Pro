@@ -21,16 +21,24 @@
 | UA2F v5.2.0 | HTTP 请求处理 | 包含中文 LuCI 配置页面，默认关闭 |
 | iStore | 软件中心 | 使用支持 APK 的上游版本，包含任务管理依赖 |
 | OpenClash | 代理 | Firewall4/nftables 模式 |
-| OpenList | 文件管理 | OpenList 服务及 LuCI 界面 |
+| PassWall | 代理 | nftables 模式，预装 Sing-Box、Geoview、GeoIP/Geosite，默认关闭 |
+| Samba4 | 局域网文件共享 | USB 磁盘共享与服务发现 |
+| SQM | 队列管理 | 按需配置，和硬件流量卸载的兼容性须实机验证 |
+| DDNS / UPnP / WOL | 网络辅助 | 动态域名、端口映射、网络唤醒 |
+| Statistics / ttyd | 监控和终端 | 系统图表、网页终端 |
+| Package Manager | 原生包管理 | 配合 APK，与 iStore 功能不同 |
+| Argon / Argon Config | 管理界面主题 | 同时保留 Bootstrap 主题 |
+
+OpenList 和 ZeroTier 不预装。OpenList 留到刷机后按需从 iStore 安装，届时仍需确认该版本与 APK 系统兼容。完整取舍见 [参考固件软件对照](docs/reference-firmware-packages.md)。
 
 ## ⚡ USB 支持
 
-已通过 DTS 补丁修复底层的 USB 硬件支持。
-固件已包含 USB 2.0/3.0、USB 存储及 RNDIS/CDC/MBIM/QMI 网络设备支持。
+项目保留现有 USB DTS 补丁；硬件支持是否正常仍须刷机后实测。
+固件已包含 USB 2.0/3.0、USB 存储、UAS、ext4/exFAT/NTFS3/VFAT，以及 RNDIS/CDC/MBIM/QMI 和常见 USB 网卡支持。
 
 ## OpenClash 说明
 
-OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，不包含旧版 iptables 依赖。固件包含 LuCI 插件及完整运行依赖；首次使用时请在 OpenClash 的版本更新页面选择 `linux-arm64` 并下载 Mihomo 核心。
+OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，OpenClash 本身不额外引入旧版 iptables 透明代理依赖；mwan3 的兼容依赖仍由上游解析。固件包含 LuCI 插件及完整运行依赖；首次使用时请在 OpenClash 的版本更新页面选择 `linux-arm64` 并下载 Mihomo 核心。
 
 ## UA2F 版本与验证
 
@@ -39,13 +47,13 @@ OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，不包含�
 - `patches/ua2f-release-build.patch` 修正 v5.2.0 源码中仍标为 4.10.2 的包版本，并采用上游后续的覆盖率开关写法，避免 GitHub CI 强制开启测试覆盖率插桩。关闭可选 libbacktrace 构建，保留普通运行日志。
 - 保留上游默认关闭和 NFQUEUE 设置，明确选择 `kmod-nft-queue`、`kmod-nft-tproxy`、`kmod-nf-conntrack-netlink`，与 Firewall4/nftables 配置配套。中文页面提供基础设置；新版本的额外参数仍可通过 UCI 设置。
 - 从旧固件升级且保留配置时，检查并停用旧 UA-Mask/UA3F 服务，再单独验证 UA2F。修改 User-Agent 不能保证消除认证平台的“共享或路由器”提示，编译成功也不能代替路由器上的稳定性验证。
-- GitHub Actions 检查 `make defconfig` 是否保留 UA2F、iStore、MultiLogin、syncdial、OpenClash、OpenList，随后检查 APK 产物和固件包清单，防止编译成功但插件未装入固件。
+- GitHub Actions 检查 `make defconfig` 是否保留 UA2F、iStore、MultiLogin、syncdial、OpenClash 及补齐的参考固件插件，随后检查 APK 产物和固件包清单，防止编译成功但插件未装入固件。
 
 ## iStore 集成
 
 - iStore 使用 [linkease/istore](https://github.com/linkease/istore) 的固定提交 `a97ace34f2da358a015b094d326bba2697697f2e`，包版本为 `0.2.1-r1`，支持 OpenWrt 25.12 的 APK 包管理。
 - 通过独立 `istore` feed 安装 `luci-app-store`、`luci-lib-taskd`、`luci-lib-xterm`、`taskd`，同时保留 `script-utils`、`coreutils-stty`、`libuci-lua`、`mount-utils`、`tar` 等真实依赖。不会改成不存在的通用 `apk` 包依赖，也不会删除 `script-utils` 来绕过依赖问题。
-- 软件中心可以在刷机后按需安装插件，但每个插件仍须匹配 OpenWrt 版本、CPU 架构和内核。MultiLogin、UA2F、OpenClash、OpenList 继续预装，不依赖软件中心的目录是否收录。
+- 软件中心可以在刷机后按需安装插件，但每个插件仍须匹配 OpenWrt 版本、CPU 架构和内核。MultiLogin、UA2F、OpenClash 继续预装，不依赖软件中心的目录是否收录。
 
 ## 多拨与 OpenClash 启动可靠性
 
@@ -59,7 +67,7 @@ OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，不包含�
 - OpenClash 停止时会恢复 `223.5.5.5`、`119.29.29.29` 作为 dnsmasq 上游；切换后应清空客户端旧 Fake-IP DNS 缓存。
 - MultiLogin 快速配置完成后，`balanced` 策略应只保留已认证的 `auto_vwan_*` 成员；未认证的物理 WAN 会造成随机慢速或 HTTPS 粘滞黑洞。
 - 全局 HTTPS 粘滞会把同一客户端固定到单条 WAN，无法聚合多拨带宽；默认保持关闭。
-- mwan3 的 HTTPS 规则只匹配 IPv4；IPv6 默认使用主路由表，不能送入仅含 IPv4 成员的 `balanced` 策略。
+- mwan3 的 HTTPS 规则只匹配 IPv4；IPv6 使用独立的 `balanced_v6` 策略，不能送入仅含 IPv4 成员的 `balanced` 策略。
 
 可在路由器上使用以下命令检查运行状态：
 

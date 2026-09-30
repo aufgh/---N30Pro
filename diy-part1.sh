@@ -19,12 +19,20 @@ patch -d package/ua2f-luci -p1 < ../patches/luci-app-ua2f-compat.patch
 echo ">> Adding APK-compatible iStore feed..."
 printf '\n%s\n' 'src-git istore https://github.com/linkease/istore^a97ace34f2da358a015b094d326bba2697697f2e' >> feeds.conf.default
 
+echo ">> Adding pinned PassWall feeds before the default feeds..."
+sed -i '1i src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git^cadc39bc5cfc67098de4797d52b1f12673351f09\nsrc-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git^1a826389f1920dbfcab1dbb811776347cc5fdfa8' feeds.conf.default
+
+echo ">> Adding Argon theme and its configuration page..."
+git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+git -C package/luci-theme-argon fetch --depth=1 origin 0546f975a66796a89ff988524290c4a2e2d01855
+git -C package/luci-theme-argon checkout --detach 0546f975a66796a89ff988524290c4a2e2d01855
+git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
+git -C package/luci-app-argon-config fetch --depth=1 origin 3e099a37c3f71d0de677f1b6b0f4bffd57d91dac
+git -C package/luci-app-argon-config checkout --detach 3e099a37c3f71d0de677f1b6b0f4bffd57d91dac
+
 echo ">> Adding OpenClash..."
 git clone --depth=1 --filter=blob:none --sparse https://github.com/vernesong/OpenClash.git package/openclash
 git -C package/openclash sparse-checkout set luci-app-openclash
-
-echo ">> Adding OpenList..."
-git clone --depth=1 https://github.com/OpenListTeam/OpenList-OpenWRT.git package/openlist
 
 echo ">> Adding luci-app-multi-login..."
 # Keep the source revision used by the existing authentication/IPv6 patches.

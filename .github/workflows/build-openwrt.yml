@@ -55,6 +55,8 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         ./scripts/feeds install -f -d y -p istore luci-app-store luci-lib-taskd luci-lib-xterm taskd
+        ./scripts/feeds install -f -d y -p passwall_luci luci-app-passwall
+        ./scripts/feeds install -f -d y -p passwall_packages sing-box geoview v2ray-geoip v2ray-geosite chinadns-ng dns2socks ipt2socks microsocks tcping
         make -C package/openclash/luci-app-openclash/tools/po2lmo
         sudo make -C package/openclash/luci-app-openclash/tools/po2lmo install
 
@@ -107,21 +109,83 @@ jobs:
           CONFIG_PACKAGE_odhcp6c=y
           CONFIG_PACKAGE_odhcpd-ipv6only=y
           CONFIG_PACKAGE_kmod-macvlan=y
-          CONFIG_PACKAGE_openlist=y
-          CONFIG_PACKAGE_luci-app-openlist=y
+          CONFIG_PACKAGE_luci-app-argon-config=y
+          CONFIG_PACKAGE_luci-theme-argon=y
+          CONFIG_PACKAGE_luci-theme-bootstrap=y
+          CONFIG_PACKAGE_luci-app-ddns=y
+          CONFIG_PACKAGE_luci-app-firewall=y
+          CONFIG_PACKAGE_luci-app-package-manager=y
+          CONFIG_PACKAGE_luci-app-passwall=y
+          CONFIG_PACKAGE_luci-app-samba4=y
+          CONFIG_PACKAGE_luci-app-sqm=y
+          CONFIG_PACKAGE_luci-app-statistics=y
+          CONFIG_PACKAGE_luci-app-ttyd=y
+          CONFIG_PACKAGE_luci-app-upnp=y
+          CONFIG_PACKAGE_luci-app-wol=y
+          CONFIG_PACKAGE_luci-app-passwall_Nftables_Transparent_Proxy=y
+          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview=y
+          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox=y
+          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geodata=y
+          CONFIG_PACKAGE_sing-box=y
+          CONFIG_PACKAGE_geoview=y
+          CONFIG_PACKAGE_v2ray-geoip=y
+          CONFIG_PACKAGE_v2ray-geosite=y
+          CONFIG_PACKAGE_block-mount=y
+          CONFIG_PACKAGE_e2fsprogs=y
+          CONFIG_PACKAGE_kmod-fs-exfat=y
+          CONFIG_PACKAGE_kmod-fs-ext4=y
+          CONFIG_PACKAGE_kmod-fs-ntfs3=y
+          CONFIG_PACKAGE_kmod-fs-vfat=y
+          CONFIG_PACKAGE_kmod-nls-cp437=y
+          CONFIG_PACKAGE_kmod-nls-iso8859-1=y
+          CONFIG_PACKAGE_kmod-nls-utf8=y
+          CONFIG_PACKAGE_kmod-usb-storage-uas=y
+          CONFIG_PACKAGE_kmod-usb-net-aqc111=y
+          CONFIG_PACKAGE_kmod-usb-net-asix=y
+          CONFIG_PACKAGE_kmod-usb-net-asix-ax88179=y
+          CONFIG_PACKAGE_kmod-usb-net-lan78xx=y
+          CONFIG_PACKAGE_kmod-usb-net-rtl8152=y
+          CONFIG_PACKAGE_r8152-firmware=y
+          CONFIG_PACKAGE_umbim=y
+          CONFIG_PACKAGE_uqmi=y
+          CONFIG_PACKAGE_wwan=y
+          CONFIG_PACKAGE_kmod-wireguard=y
+          CONFIG_PACKAGE_wireguard-tools=y
+          CONFIG_PACKAGE_luci-proto-wireguard=y
+          CONFIG_PACKAGE_relayd=y
+          CONFIG_PACKAGE_luci-proto-relay=y
+          CONFIG_PACKAGE_collectd-mod-cpu=y
+          CONFIG_PACKAGE_collectd-mod-interface=y
+          CONFIG_PACKAGE_collectd-mod-iwinfo=y
+          CONFIG_PACKAGE_collectd-mod-load=y
+          CONFIG_PACKAGE_collectd-mod-memory=y
+          CONFIG_PACKAGE_collectd-mod-network=y
+          CONFIG_PACKAGE_collectd-mod-rrdtool=y
+          CONFIG_PACKAGE_ddns-scripts-services=y
+          CONFIG_PACKAGE_avahi-dbus-daemon=y
+          CONFIG_PACKAGE_wsdd2=y
+          CONFIG_PACKAGE_wpad-openssl=y
         )
+        missing=0
         for config in "${required_configs[@]}"; do
           grep -Fqx "$config" .config || {
             echo "::error::Required config was dropped by make defconfig: $config"
-            exit 1
+            missing=1
           }
         done
+        if [ "$missing" -ne 0 ]; then
+          grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils|tar|mount-utils)|CONFIG_USE_APK' .config || true
+          for package in luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils; do
+            sed -n "/^config PACKAGE_${package}\$/,/^config /p" tmp/.config-package.in
+          done
+          exit 1
+        fi
         if grep -Fqx 'CONFIG_PACKAGE_dnsmasq=y' .config; then
           echo "::error::dnsmasq conflicts with dnsmasq-full"
           exit 1
         fi
-        if grep -Fqx 'CONFIG_PACKAGE_luci-app-zerotier=y' .config; then
-          echo "::error::ZeroTier must not be included"
+        if grep -Eq '^CONFIG_PACKAGE_(zerotier|luci-app-zerotier|openlist|luci-app-openlist)=[ym]$' .config; then
+          echo "::error::ZeroTier and OpenList must not be preinstalled"
           exit 1
         fi
         if grep -Eq '^CONFIG_PACKAGE_(UAmask|luci-app-uamask|ua3f|luci-app-ua3f)=[ym]$' .config; then
@@ -149,8 +213,9 @@ jobs:
           'taskd-*.apk'
           'luci-app-multilogin-*.apk'
           'luci-app-openclash-*.apk'
-          'openlist-*.apk'
-          'luci-app-openlist-*.apk'
+          'luci-app-passwall-*.apk'
+          'sing-box-*.apk'
+          'luci-theme-argon-*.apk'
         )
         for pattern in "${required_artifacts[@]}"; do
           artifact="$(find bin/packages -type f -name "$pattern" -print -quit)"
@@ -165,14 +230,14 @@ jobs:
           echo "::error::Firmware package manifest is missing"
           exit 1
         fi
-        for package in ua2f luci-app-ua2f luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils coreutils-stty luci-app-multilogin luci-app-syncdial luci-app-openclash openlist luci-app-openlist; do
+        for package in ua2f luci-app-ua2f luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils coreutils-stty luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-statistics luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite; do
           grep -Eq "^${package} - " "$manifest" || {
             echo "::error::Required package is missing from the firmware: $package"
             exit 1
           }
         done
-        if grep -Eiq '^(UAmask|luci-app-uamask|ua3f|luci-app-ua3f) - ' "$manifest"; then
-          echo "::error::UA-Mask or UA3F was found in the firmware"
+        if grep -Eiq '^(UAmask|luci-app-uamask|ua3f|luci-app-ua3f|zerotier|luci-app-zerotier|openlist|luci-app-openlist) - ' "$manifest"; then
+          echo "::error::An excluded UA-Mask, UA3F, ZeroTier or OpenList package was found in the firmware"
           exit 1
         fi
         echo "status=success" >> $GITHUB_OUTPUT

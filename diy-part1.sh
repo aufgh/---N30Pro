@@ -3,8 +3,19 @@
 
 set -euo pipefail
 
-echo ">> Adding UA3F v3.6.0 (includes LuCI and Chinese translation)..."
-git clone --depth=1 --branch v3.6.0 https://github.com/SunBK201/UA3F.git package/UA3F
+echo ">> Adding UA2F v5.2.0..."
+git clone --depth=1 --branch v5.2.0 https://github.com/Zxilly/UA2F.git package/UA2F
+patch -d package/UA2F -p1 < ../patches/ua2f-release-build.patch
+
+echo ">> Adding UA2F Chinese LuCI configuration page..."
+UA2F_LUCI_REV=abce6b21c88643ead4a88d1a8144ef4813c002fd
+git clone --depth=1 https://github.com/lucikap/luci-app-ua2f.git package/ua2f-luci
+git -C package/ua2f-luci fetch --depth=1 origin "$UA2F_LUCI_REV"
+git -C package/ua2f-luci checkout --detach "$UA2F_LUCI_REV"
+patch -d package/ua2f-luci -p1 < ../patches/luci-app-ua2f-compat.patch
+
+echo ">> Adding APK-compatible iStore feed..."
+printf '\n%s\n' 'src-git istore https://github.com/linkease/istore^a97ace34f2da358a015b094d326bba2697697f2e' >> feeds.conf.default
 
 echo ">> Adding OpenClash..."
 git clone --depth=1 --filter=blob:none --sparse https://github.com/vernesong/OpenClash.git package/openclash
@@ -31,4 +42,5 @@ echo ">> Adding luci-app-syncdial (from ImmortalWrt)..."
 git clone --depth=1 --filter=blob:none --sparse https://github.com/immortalwrt/luci.git package/immortalwrt-luci
 git -C package/immortalwrt-luci sparse-checkout set applications/luci-app-syncdial
 cp -r package/immortalwrt-luci/applications/luci-app-syncdial package/luci-app-syncdial
+sed -i 's|^include ../../luci.mk$|include $(TOPDIR)/feeds/luci/luci.mk|' package/luci-app-syncdial/Makefile
 rm -rf package/immortalwrt-luci

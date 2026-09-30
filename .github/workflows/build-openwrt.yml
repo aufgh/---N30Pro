@@ -67,6 +67,8 @@ jobs:
         ../diy-part2.sh
         make defconfig
         required_configs=(
+          CONFIG_LUCI_LANG_zh_Hans=y
+          CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
           CONFIG_USE_APK=y
           CONFIG_PACKAGE_ua2f=y
           CONFIG_PACKAGE_luci-app-ua2f=y

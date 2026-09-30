@@ -53,6 +53,7 @@ OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，OpenClash �
 
 - iStore 使用 [linkease/istore](https://github.com/linkease/istore) 的固定提交 `a97ace34f2da358a015b094d326bba2697697f2e`，包版本为 `0.2.1-r1`，支持 OpenWrt 25.12 的 APK 包管理。
 - 通过独立 `istore` feed 安装 `luci-app-store`、`luci-lib-taskd`、`luci-lib-xterm`、`taskd`，同时保留 `script-utils`、`coreutils-stty`、`libuci-lua`、`mount-utils`、`tar` 等真实依赖。不会改成不存在的通用 `apk` 包依赖，也不会删除 `script-utils` 来绕过依赖问题。
+- 本轮云端复现定位到 `tar` 默认 XZ 支持所需的 `xz-utils` 未启用。生成的 iStore Kconfig 明确包含 `depends on !(PACKAGE_TAR_XZ) || PACKAGE_xz-utils`；补齐 `xz-utils`、`xz` 并检查最终固件清单，避免 tar 和 iStore 一起被配置解析丢弃。这是本轮失败的直接证据，不等于此前所有历史失败都已证明同因。
 - 软件中心可以在刷机后按需安装插件，但每个插件仍须匹配 OpenWrt 版本、CPU 架构和内核。MultiLogin、UA2F、OpenClash 继续预装，不依赖软件中心的目录是否收录。
 
 ## 多拨与 OpenClash 启动可靠性

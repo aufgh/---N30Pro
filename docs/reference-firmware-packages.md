@@ -45,6 +45,8 @@
 - `bridger`、`kmod-mtd-rw`、内核自测模块：未作为必需功能加入，不为复制软件数量而引入额外卸载行为或闪存写入工具。
 - `opkg`、`luci-lib-ipkg`、版本化的旧 ABI 库：由当前 APK 系统及当前源码依赖替代。
 
+本轮 iStore 配置失败已在云端复现：生成的 Kconfig 要求 `!(PACKAGE_TAR_XZ) || PACKAGE_xz-utils`，但最初未启用 `xz-utils`，因此 `tar` 和 `luci-app-store` 被丢弃。现已补齐 `xz-utils`、`xz`，保持 GNU tar 的 XZ 功能及商店依赖；最终结果以新一轮云端检查为准。
+
 OpenClash 和 PassWall 的流量接管、DNS 设置存在重叠。预装两套供选择，先只启用一套并验证认证、IPv4、IPv6和 DNS；本次不创建订阅、节点或自动启用 PassWall。iStore 与原生 Package Manager 则分别提供应用目录和底层软件包管理，可以同时保留。
 
 ## 固定的第三方源码

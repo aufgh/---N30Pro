@@ -80,6 +80,8 @@ jobs:
           CONFIG_PACKAGE_libuci-lua=y
           CONFIG_PACKAGE_mount-utils=y
           CONFIG_PACKAGE_tar=y
+          CONFIG_PACKAGE_xz-utils=y
+          CONFIG_PACKAGE_xz=y
           CONFIG_PACKAGE_kmod-nft-queue=y
           CONFIG_PACKAGE_kmod-nf-conntrack-netlink=y
           CONFIG_PACKAGE_luci-app-multilogin=y
@@ -176,7 +178,7 @@ jobs:
         if [ "$missing" -ne 0 ]; then
           grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils|tar|mount-utils)|CONFIG_USE_APK' .config || true
           for package in luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils tar; do
-            awk -v symbol="PACKAGE_$package" '$1 == "config" { output = ($2 == symbol) } output { print }' tmp/.config-package.in
+            awk -v symbol="PACKAGE_$package" '$1 ~ /^(menu)?config$/ { output = ($2 == symbol) } output { print }' tmp/.config-package.in
           done
           exit 1
         fi
@@ -230,7 +232,7 @@ jobs:
           echo "::error::Firmware package manifest is missing"
           exit 1
         fi
-        for package in ua2f luci-app-ua2f luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils coreutils-stty luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-statistics luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite; do
+        for package in ua2f luci-app-ua2f luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils coreutils-stty tar xz-utils xz luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-statistics luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite; do
           grep -Eq "^${package} - " "$manifest" || {
             echo "::error::Required package is missing from the firmware: $package"
             exit 1

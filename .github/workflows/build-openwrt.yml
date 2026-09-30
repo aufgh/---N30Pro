@@ -175,8 +175,8 @@ jobs:
         done
         if [ "$missing" -ne 0 ]; then
           grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils|tar|mount-utils)|CONFIG_USE_APK' .config || true
-          for package in luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils; do
-            sed -n "/^config PACKAGE_${package}\$/,/^config /p" tmp/.config-package.in
+          for package in luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils tar; do
+            awk -v symbol="PACKAGE_$package" '$1 == "config" { output = ($2 == symbol) } output { print }' tmp/.config-package.in
           done
           exit 1
         fi

@@ -12,6 +12,8 @@ UA2F_LUCI_REV=abce6b21c88643ead4a88d1a8144ef4813c002fd
 git clone --depth=1 https://github.com/lucikap/luci-app-ua2f.git package/ua2f-luci
 git -C package/ua2f-luci fetch --depth=1 origin "$UA2F_LUCI_REV"
 git -C package/ua2f-luci checkout --detach "$UA2F_LUCI_REV"
+# This upstream controller is committed with CRLF; the patch uses LF.
+sed -i 's/\r$//' package/ua2f-luci/luci-app-ua2f/controller/autoua2f.lua
 patch -d package/ua2f-luci -p1 < ../patches/luci-app-ua2f-compat.patch
 
 echo ">> Adding APK-compatible iStore feed..."

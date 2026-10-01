@@ -28,7 +28,7 @@
 ## 本项目额外保留的功能
 
 - MultiLogin、mwan3、syncdial：继续保留已有认证状态检查和 IPv6 上联补丁。
-- UA2F v5.2.0 和中文基础配置页面：替换 UA-Mask；不包含 UA3F。保持默认关闭，刷机后单独验证。
+- UA3F v3.6.0 自带 LuCI 页面，替换 UA2F/UA-Mask；配合 hev-socks5-tproxy 默认启用 LAN 双栈 TCP 接管，认证仍由 MultiLogin 负责。详见 [UA3F 配置](ua3f-transparent-profile.md)。
 - 固定 TTL / Hop Limit：保留现有规则，ICMPv6 控制报文不改为 64。
 - OpenList：预装服务及 LuCI 页面；不依赖 iStore 安装。
 - 单线路优先：mwan3 默认关闭，插件保留；MultiLogin 独立检查接口和认证状态，DHCPv6 上联取消源地址路由限制以支持 NAT66。
@@ -53,8 +53,7 @@ OpenClash 和 PassWall 的流量接管、DNS 设置存在重叠。预装两套�
 
 | 来源 | 固定版本或提交 |
 |---|---|
-| UA2F | v5.2.0 |
-| UA2F 中文页面 | abce6b21c88643ead4a88d1a8144ef4813c002fd |
+| UA3F | v3.6.0 / ac39645779823e94628435a2d69cd086a4e4b9fc |
 | OpenList OpenWrt packages | 4bf72661c700d7209e78228f3d3c618443d5b9df |
 | PassWall LuCI | 1a826389f1920dbfcab1dbb811776347cc5fdfa8 |
 | PassWall packages | cadc39bc5cfc67098de4797d52b1f12673351f09 |

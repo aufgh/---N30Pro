@@ -1,0 +1,118 @@
+#!/bin/sh
+# UA3F owns the lifecycle of this LAN-only, dual-stack transparent proxy.
+set -eu
+
+TABLE=31001
+PREF=1000
+MARK=0x01000000/0xff000000
+NFT_TABLE=n30pro_ua3f
+RUN_DIR=/var/run/ua3f-tproxy
+
+cleanup() {
+    nft delete table inet "$NFT_TABLE" 2>/dev/null || true
+    for family in -4 -6; do
+        ip "$family" rule del pref "$PREF" fwmark "$MARK" lookup "$TABLE" 2>/dev/null || true
+        ip "$family" route flush table "$TABLE" 2>/dev/null || true
+    done
+}
+
+fail() {
+    logger -t ua3f-tproxy "$*"
+    exit 1
+}
+
+case "${1:-reload}" in
+    stop) cleanup; exit 0 ;;
+    start) ;;
+    reload)
+        # fw4 script includes must not resurrect a stopped service.
+        /etc/init.d/ua3f running || { cleanup; exit 0; }
+        ;;
+    *) exit 2 ;;
+esac
+
+cleanup
+[ "$(uci -q get ua3f.enabled.enabled || true)" = 1 ] || exit 0
+[ "$(uci -q get ua3f.main.transparent_proxy || true)" = 1 ] || exit 0
+[ "$(uci -q get ua3f.main.server_mode || true)" = SOCKS5 ] || fail 'Transparent profile requires SOCKS5 mode.'
+[ "$(uci -q get ua3f.main.bind || true)" = 127.0.0.1 ] || fail 'Transparent profile requires a loopback SOCKS5 listener.'
+
+lan_device="$(uci -q get ua3f.main.lan_device || true)"
+lan_device="${lan_device:-br-lan}"
+case "$lan_device" in *[!a-zA-Z0-9_.:-]*|'') fail 'Invalid LAN device.' ;; esac
+ip link show dev "$lan_device" >/dev/null 2>&1 || fail 'LAN device is not available.'
+port="$(uci -q get ua3f.main.port || true)"
+case "$port" in *[!0-9]*|'') fail 'Invalid SOCKS5 port.' ;; esac
+[ "$port" -gt 0 ] && [ "$port" -le 65535 ] && [ "$port" -ne 1088 ] || fail 'SOCKS5 port must be 1..65535, except 1088.'
+command -v hev-socks5-tproxy >/dev/null || fail 'hev-socks5-tproxy is missing.'
+for option in flow_offloading flow_offloading_hw; do
+    [ "$(uci -q get "firewall.@defaults[0].$option" || true)" != 1 ] || fail 'Disable software/hardware flow offloading before enabling this profile.'
+done
+
+# A second transparent proxy needs deliberate chaining; do not silently steal it.
+for option in openclash.config.enable passwall.@global[0].enabled; do
+    [ "$(uci -q get "$option" || true)" != 1 ] || fail 'Disable OpenClash/PassWall interception before enabling this profile; SOCKS5 remains available for manual chaining.'
+done
+
+mkdir -p "$RUN_DIR"
+cat > "$RUN_DIR/hev.yml" <<EOF
+main:
+  workers: 2
+socks5:
+  address: 127.0.0.1
+  port: $port
+tcp:
+  address: '::'
+  port: 1088
+misc:
+  log-level: warn
+  log-file: stderr
+EOF
+
+# Match connected LAN prefixes, rather than excluding the campus 10/8 or fc00/7.
+lan4="$(ip -4 route show dev "$lan_device" scope link | awk '$1 ~ /^[0-9.]+\/[0-9]+$/ { print $1 }' | sort -u | awk '{ printf "%s%s", sep, $0; sep="," }')"
+lan6="$(ip -6 route show dev "$lan_device" | awk '$1 ~ /^[0-9a-fA-F:]+\/[0-9]+$/ { print $1 }' | sort -u | awk '{ printf "%s%s", sep, $0; sep="," }')"
+https_rule=''
+if [ "$(uci -q get ua3f.main.proxy_https || true)" != 1 ]; then
+    https_rule='tcp dport 443 return'
+fi
+
+# Only our high mark byte participates in policy routing; retain mwan3 low bits.
+trap 'cleanup' EXIT
+ip -4 route add local 0.0.0.0/0 dev lo table "$TABLE"
+ip -4 rule add pref "$PREF" fwmark "$MARK" lookup "$TABLE"
+ip -6 route add local ::/0 dev lo table "$TABLE"
+ip -6 rule add pref "$PREF" fwmark "$MARK" lookup "$TABLE"
+
+cat > "$RUN_DIR/rules.nft" <<EOF
+table inet $NFT_TABLE {
+    set lan4 { type ipv4_addr; flags interval; elements = { $lan4 }; }
+    set lan6 { type ipv6_addr; flags interval; elements = { $lan6 }; }
+    chain prerouting {
+        type filter hook prerouting priority -160; policy accept;
+        iifname != "$lan_device" return
+        fib daddr type local return
+        ip daddr @lan4 return
+        ip6 daddr @lan6 return
+        ip daddr { 127.0.0.0/8, 169.254.0.0/16, 198.18.0.0/15, 224.0.0.0/4, 240.0.0.0/4 } return
+        ip6 daddr { ::/128, ::1/128, fe80::/10, ff00::/8 } return
+        $https_rule
+        meta nfproto ipv4 meta l4proto tcp counter tproxy ip to 127.0.0.1:1088 meta mark set (meta mark & 0x00ffffff) | 0x01000000 accept
+        meta nfproto ipv6 meta l4proto tcp counter tproxy ip6 to [::1]:1088 meta mark set (meta mark & 0x00ffffff) | 0x01000000 accept
+    }
+    chain forward {
+        type filter hook forward priority -10; policy accept;
+        iifname != "$lan_device" return
+        ip daddr @lan4 return
+        ip6 daddr @lan6 return
+        meta l4proto udp udp dport 443 counter reject with icmpx type port-unreachable
+    }
+    chain ntp_redirect {
+        type nat hook prerouting priority -101; policy accept;
+        iifname "$lan_device" meta l4proto udp udp dport 123 counter redirect to :123
+    }
+}
+EOF
+nft -c -f "$RUN_DIR/rules.nft"
+nft -f "$RUN_DIR/rules.nft"
+trap - EXIT

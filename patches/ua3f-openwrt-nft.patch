@@ -1,0 +1,82 @@
+--- a/openwrt/Makefile
++++ b/openwrt/Makefile
+@@ -17,7 +17,7 @@
+ PKG_BUILD_FLAGS:=no-mips16
+ 
+ GO_PKG:=github.com/sunbk201/ua3f
+-GO_PKG_LDFLAGS_X:=main.appVersion=v$(PKG_VERSION)
++GO_PKG_LDFLAGS_X:=github.com/sunbk201/ua3f/cmd.AppVersion=v$(PKG_VERSION)
+ 
+ include $(INCLUDE_DIR)/package.mk
+ include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
+@@ -28,7 +28,7 @@
+ 	SUBMENU:=Web Servers/Proxies
+ 	TITLE:=Advanced HTTP Rewriting Proxy
+ 	URL:=https://github.com/SunBK201/UA3F
+-	DEPENDS:=$(GO_ARCH_DEPENDS) +luci-compat +ipset +iptables +iptables-mod-tproxy +iptables-mod-extra +iptables-mod-ipopt +iptables-mod-nfqueue +iptables-mod-conntrack-extra +kmod-nf-conntrack-netlink
++	DEPENDS:=$(GO_ARCH_DEPENDS) +luci-compat +libubox-lua +nftables-json +ip-full +kmod-nft-tproxy +kmod-nft-fib +kmod-nft-queue +kmod-nf-conntrack-netlink
+ endef
+ 
+ define Package/ua3f/description
+--- a/openwrt/files/ua3f.init
++++ b/openwrt/files/ua3f.init
+@@ -98,6 +98,25 @@
+     procd_set_param pidfile "/var/run/$NAME.pid"
+ 
+     procd_close_instance
++
++    local transparent_proxy
++    config_get_bool transparent_proxy "main" "transparent_proxy" 0
++    if [ "$transparent_proxy" -eq "1" ]; then
++        if /usr/libexec/n30pro-ua3f-tproxy start; then
++            procd_open_instance "ua3f-tproxy"
++            procd_set_param command /usr/bin/hev-socks5-tproxy /var/run/ua3f-tproxy/hev.yml
++            procd_set_param file /var/run/ua3f-tproxy/hev.yml
++            procd_set_param respawn
++            procd_set_param stdout 1
++            procd_set_param stderr 1
++            procd_set_param limits nofile="65535 65535"
++            procd_close_instance
++        fi
++    fi
++}
++
++stop_service() {
++    /usr/libexec/n30pro-ua3f-tproxy stop
+ }
+ 
+ reload_service() {
+@@ -106,5 +125,5 @@
+ }
+ 
+ service_triggers() {
+-    procd_add_reload_trigger "$NAME"
++    procd_add_reload_trigger "$NAME" "network"
+ }
+--- a/openwrt/luasrc/model/cbi/ua3f/general.lua
++++ b/openwrt/luasrc/model/cbi/ua3f/general.lua
+@@ -18,7 +18,23 @@
+     server_mode:value("TPROXY", "TPROXY")
+     server_mode:value("REDIRECT", "REDIRECT")
+     server_mode:value("NFQUEUE", "NFQUEUE")
+-    server_mode.default = "TPROXY"
++    server_mode.default = "SOCKS5"
++
++    local transparent = section:taboption("general", Flag, "transparent_proxy", "LAN 双栈透明代理")
++    transparent:depends("server_mode", "SOCKS5")
++    transparent.default = "1"
++    transparent.rmempty = false
++    transparent.description = "通过 hev 接管 LAN 的 IPv4/IPv6 TCP；需绑定 127.0.0.1，且关闭 OpenClash/PassWall 的独立接管。关闭 UA3F 时一并撤下接管规则。"
++
++    local https = section:taboption("general", Flag, "proxy_https", "同时转发 TCP/443")
++    https:depends("transparent_proxy", "1")
++    https.default = "1"
++    https.rmempty = false
++    https.description = "使用路由器重新建立 TCP 连接；不解密 TLS，因此不会修改 HTTPS 内的 UA 或 TLS 指纹。关闭可减少 CPU 开销，但 443 将直连。"
++
++    local lan_device = section:taboption("general", Value, "lan_device", "接管的 LAN 设备")
++    lan_device:depends("transparent_proxy", "1")
++    lan_device.default = "br-lan"
+ 
+     if not utils.tproxy_exists() then
+         local tproxy_warning = section:taboption("general", DummyValue, "_tproxy_warning", " ")

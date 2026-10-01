@@ -280,6 +280,11 @@ fi
 exit 0
 EOF
 
+echo ">> Installing the UA3F transparent profile and lifecycle helper..."
+cp -a ../files/. package/base-files/files/
+chmod +x package/base-files/files/usr/libexec/n30pro-ua3f-tproxy
+chmod +x package/base-files/files/etc/uci-defaults/99-ua3f-transparent
+
 echo ">> Injecting custom TTL/Hoplimit rules..."
 mkdir -p package/base-files/files/etc/nftables.d
 cat > package/base-files/files/etc/nftables.d/10-custom-ttl.nft << 'EOF'

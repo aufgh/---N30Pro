@@ -9,6 +9,7 @@ on:
       - 'diy-part1.sh'
       - 'diy-part2.sh'
       - 'patches/**'
+      - 'files/**'
       - '.github/workflows/build-openwrt.yml'
   repository_dispatch:
   workflow_dispatch:
@@ -69,8 +70,10 @@ jobs:
           CONFIG_LUCI_LANG_zh_Hans=y
           CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
           CONFIG_USE_APK=y
-          CONFIG_PACKAGE_ua2f=y
-          CONFIG_PACKAGE_luci-app-ua2f=y
+          CONFIG_PACKAGE_ua3f=y
+          CONFIG_PACKAGE_hev-socks5-tproxy=y
+          CONFIG_PACKAGE_libubox-lua=y
+          CONFIG_PACKAGE_kmod-nft-fib=y
           CONFIG_PACKAGE_kmod-nft-queue=y
           CONFIG_PACKAGE_kmod-nf-conntrack-netlink=y
           CONFIG_PACKAGE_luci-app-multilogin=y
@@ -171,8 +174,8 @@ jobs:
           echo "::error::iStore and statistics collectors must not be preinstalled"
           exit 1
         fi
-        if grep -Eq '^CONFIG_PACKAGE_(UAmask|luci-app-uamask|ua3f|luci-app-ua3f)=[ym]$' .config; then
-          echo "::error::UA-Mask and UA3F must not be included alongside UA2F"
+        if grep -Eq '^CONFIG_PACKAGE_(UAmask|luci-app-uamask|ua2f|luci-app-ua2f)=[ym]$' .config; then
+          echo "::error::UA-Mask and UA2F must not be included alongside UA3F"
           exit 1
         fi
 
@@ -188,8 +191,8 @@ jobs:
         cd openwrt
         make -j$(nproc) || make -j1 V=s
         required_artifacts=(
-          'ua2f-*.apk'
-          'luci-app-ua2f-*.apk'
+          'ua3f-*.apk'
+          'hev-socks5-tproxy-*.apk'
           'luci-app-multilogin-*.apk'
           'openlist-*.apk'
           'luci-app-openlist-*.apk'
@@ -213,14 +216,14 @@ jobs:
           echo "::error::Firmware package manifest is missing"
           exit 1
         fi
-        for package in ua2f luci-app-ua2f luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite openlist luci-app-openlist zerotier luci-app-zerotier; do
+        for package in ua3f hev-socks5-tproxy luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite openlist luci-app-openlist zerotier luci-app-zerotier; do
           grep -Eq "^${package} - " "$manifest" || {
             echo "::error::Required package is missing from the firmware: $package"
             exit 1
           }
         done
-        if grep -Eiq '^(UAmask|luci-app-uamask|ua3f|luci-app-ua3f|luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|luci-app-statistics|collectd|collectd-mod-[^ ]+) - ' "$manifest"; then
-          echo "::error::An excluded UA-Mask, UA3F, iStore or statistics package was found in the firmware"
+        if grep -Eiq '^(UAmask|luci-app-uamask|ua2f|luci-app-ua2f|luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|luci-app-statistics|collectd|collectd-mod-[^ ]+) - ' "$manifest"; then
+          echo "::error::An excluded UA-Mask, UA2F, iStore or statistics package was found in the firmware"
           exit 1
         fi
         echo "status=success" >> $GITHUB_OUTPUT

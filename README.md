@@ -18,7 +18,7 @@
 | mwan3 | 多线多拨 | 保留插件，默认关闭服务；单线路使用系统默认路由 |
 | syncdial | 同步多拨 | 配合 mwan3 |
 | MultiLogin | 自动认证 | 多 WAN 校园网自动登录 |
-| UA2F v5.2.0 | HTTP 请求处理 | 包含中文 LuCI 配置页面，默认关闭 |
+| UA3F v3.6.0 + hev | HTTP UA 改写与 TCP 透明转发 | 自带中文 LuCI；默认开启 LAN IPv4/IPv6 接管 |
 | OpenList | 文件列表与存储接入 | 预装服务及 LuCI 页面，固定上游提交 |
 | ZeroTier | 虚拟组网 | 预装服务及 LuCI 页面，按需配置 |
 | OpenClash | 代理 | Firewall4/nftables 模式 |
@@ -41,14 +41,17 @@ OpenList 和 ZeroTier 预装；iStore、Statistics 及 collectd 采集组件移�
 
 OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，OpenClash 本身不额外引入旧版 iptables 透明代理依赖；mwan3 的兼容依赖仍由上游解析。固件包含 LuCI 插件及完整运行依赖；首次使用时请在 OpenClash 的版本更新页面选择 `linux-arm64` 并下载 Mihomo 核心。
 
-## UA2F 版本与验证
+## UA3F 透明代理
 
-- 使用 [UA2F 官方 v5.2.0](https://github.com/Zxilly/UA2F/releases/tag/v5.2.0)，移除 UA-Mask 和 UA3F，避免重复处理同一流量。
-- 选择 `ua2f` 和 `luci-app-ua2f`。中文页面来自 [lucikap/luci-app-ua2f](https://github.com/lucikap/luci-app-ua2f)，固定到 `abce6b21c88643ead4a88d1a8144ef4813c002fd`，补齐 `luci-compat` 依赖；页面不再自动向外部 HTTP 网站发送检测请求。
-- `patches/ua2f-release-build.patch` 修正 v5.2.0 源码中仍标为 4.10.2 的包版本，并采用上游后续的覆盖率开关写法，避免 GitHub CI 强制开启测试覆盖率插桩。关闭可选 libbacktrace 构建，保留普通运行日志。
-- 保留上游默认关闭和 NFQUEUE 设置，明确选择 `kmod-nft-queue`、`kmod-nft-tproxy`、`kmod-nf-conntrack-netlink`，与 Firewall4/nftables 配置配套。中文页面提供基础设置；新版本的额外参数仍可通过 UCI 设置。
-- 从旧固件升级且保留配置时，检查并停用旧 UA-Mask/UA3F 服务，再单独验证 UA2F。修改 User-Agent 不能保证消除认证平台的“共享或路由器”提示，编译成功也不能代替路由器上的稳定性验证。
-- GitHub Actions 检查 `make defconfig` 是否保留 UA2F、OpenList、ZeroTier、MultiLogin、syncdial、OpenClash 及补齐的参考固件插件，随后检查 APK 产物和固件包清单，防止编译成功但插件未装入固件。
+- 使用官方 UA3F v3.6.0，源码固定到 `ac39645779823e94628435a2d69cd086a4e4b9fc`，替换 UA2F；不同时安装 UA-Mask。
+- 采用 `LAN → nftables TPROXY → hev-socks5-tproxy → UA3F SOCKS5 → 已认证出口`。认证继续由 MultiLogin 负责，路由器自身认证请求不被 LAN 接管。
+- 保留 IPv6，分别配置两个地址族的 TPROXY 和策略路由；默认 TCP/443 也转发。HTTPS 不解密，无法据此保证隐藏 UA/TLS 特征或消除共享提示。
+- 固定 TTL/Hop Limit、关闭软硬件 flow offloading、拒绝 LAN UDP/443、将 NTP 收敛到路由器；保留 ICMPv6 控制报文。
+- UA3F 自带 LuCI 页面；补齐 OpenWrt 25.12 的 `libubox-lua` 等依赖，修正包版本链接变量，采用 nftables 依赖。服务停止时撤下关联规则和路由。
+- OpenClash/PassWall 插件保留；本透明配置与其独立接管不同时启用。已有代理节点的串联需要另行验证。
+- 已完成静态和异常清理检查，路由器规则校验及上游程序的 IPv4/IPv6 SOCKS5 运行检查；完整固件编译和刷机后 LAN 透明代理仍以实测为准。
+
+配置、开关、IPv6 风险和验证边界详见 [UA3F 双栈透明代理配置](docs/ua3f-transparent-profile.md)。
 
 ## OpenList、ZeroTier 和包管理
 
@@ -145,8 +148,9 @@ ip -6 route show default
 ├── .github/workflows/build-openwrt.yml  # GitHub Actions 工作流
 ├── patches/multilogin-auth-check.patch  # MultiLogin 真实认证状态检查补丁
 ├── patches/multilogin-ipv6-uplink.patch # MultiLogin 原生 IPv6 上联补丁
-├── patches/ua2f-release-build.patch    # UA2F 版本标记和正式构建修正
-├── patches/luci-app-ua2f-compat.patch  # UA2F 中文页面兼容修正
+├── patches/ua3f-openwrt-nft.patch      # UA3F nftables/LuCI/服务管理适配
+├── files/                            # 双栈透明接管和首次启动配置
+├── docs/ua3f-transparent-profile.md   # UA3F 使用及验证说明
 ├── diy-part1.sh                      # 编译前脚本（添加第三方源）
 ├── diy-part2.sh                      # 编译后脚本（DTS补丁+默认设置）
 └── README.md                         # 本文件

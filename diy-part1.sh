@@ -3,18 +3,11 @@
 
 set -euo pipefail
 
-echo ">> Adding UA2F v5.2.0..."
-git clone --depth=1 --branch v5.2.0 https://github.com/Zxilly/UA2F.git package/UA2F
-patch -d package/UA2F -p1 < ../patches/ua2f-release-build.patch
-
-echo ">> Adding UA2F Chinese LuCI configuration page..."
-UA2F_LUCI_REV=abce6b21c88643ead4a88d1a8144ef4813c002fd
-git clone --depth=1 https://github.com/lucikap/luci-app-ua2f.git package/ua2f-luci
-git -C package/ua2f-luci fetch --depth=1 origin "$UA2F_LUCI_REV"
-git -C package/ua2f-luci checkout --detach "$UA2F_LUCI_REV"
-# This upstream controller is committed with CRLF; the patch uses LF.
-sed -i 's/\r$//' package/ua2f-luci/luci-app-ua2f/controller/autoua2f.lua
-patch -d package/ua2f-luci -p1 < ../patches/luci-app-ua2f-compat.patch
+echo ">> Adding pinned UA3F v3.6.0 (with its LuCI page)..."
+UA3F_REV=ac39645779823e94628435a2d69cd086a4e4b9fc
+git clone --depth=1 --branch v3.6.0 https://github.com/SunBK201/UA3F.git package/UA3F
+test "$(git -C package/UA3F rev-parse HEAD)" = "$UA3F_REV"
+patch -d package/UA3F -p1 < ../patches/ua3f-openwrt-nft.patch
 
 echo ">> Adding pinned PassWall feeds before the default feeds..."
 sed -i '1i src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git^cadc39bc5cfc67098de4797d52b1f12673351f09\nsrc-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git^1a826389f1920dbfcab1dbb811776347cc5fdfa8' feeds.conf.default

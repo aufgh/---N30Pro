@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# Remove stale UA2F/UA-Mask services when preserving an older configuration.
+for service in ua2f uamask UAmask hev-socks5-tproxy; do
+    [ ! -x "/etc/init.d/$service" ] || {
+        "/etc/init.d/$service" stop
+        "/etc/init.d/$service" disable
+    }
+done
+
+uci -q set ua3f.enabled='ua3f'
+uci -q set ua3f.enabled.enabled='1'
+uci -q set ua3f.main='ua3f'
+uci -q set ua3f.main.server_mode='SOCKS5'
+uci -q set ua3f.main.bind='127.0.0.1'
+uci -q set ua3f.main.port='1080'
+uci -q set ua3f.main.transparent_proxy='1'
+uci -q set ua3f.main.proxy_https='1'
+uci -q set ua3f.main.lan_device='br-lan'
+uci -q set ua3f.main.rewrite_mode='GLOBAL'
+uci -q set ua3f.main.ua='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+uci -q set ua3f.main.log_level='WARN'
+# TLS passes through without MITM; do not import certificates into clients.
+uci -q set ua3f.main.mitm_enabled='0'
+for option in l3_rewrite_ttl l3_rewrite_ipid l3_rewrite_tcpts l3_rewrite_tcpwin l3_rewrite_block_quic l3_rewrite_bpf_offload desync_reorder desync_inject; do
+    uci -q set "ua3f.main.$option=0"
+done
+uci -q commit ua3f
+
+uci -q set firewall.@defaults[0].flow_offloading='0'
+uci -q set firewall.@defaults[0].flow_offloading_hw='0'
+uci -q set firewall.ua3f_transparent='include'
+uci -q set firewall.ua3f_transparent.type='script'
+uci -q set firewall.ua3f_transparent.path='/usr/libexec/n30pro-ua3f-tproxy'
+uci -q set firewall.ua3f_transparent.fw4_compatible='1'
+uci -q commit firewall
+uci -q set system.ntp.enable_server='1'
+uci -q commit system
+/etc/init.d/ua3f enable
+exit 0

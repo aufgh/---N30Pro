@@ -16,9 +16,6 @@ git -C package/ua2f-luci checkout --detach "$UA2F_LUCI_REV"
 sed -i 's/\r$//' package/ua2f-luci/luci-app-ua2f/controller/autoua2f.lua
 patch -d package/ua2f-luci -p1 < ../patches/luci-app-ua2f-compat.patch
 
-echo ">> Adding APK-compatible iStore feed..."
-printf '\n%s\n' 'src-git istore https://github.com/linkease/istore^a97ace34f2da358a015b094d326bba2697697f2e' >> feeds.conf.default
-
 echo ">> Adding pinned PassWall feeds before the default feeds..."
 sed -i '1i src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git^cadc39bc5cfc67098de4797d52b1f12673351f09\nsrc-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git^1a826389f1920dbfcab1dbb811776347cc5fdfa8' feeds.conf.default
 
@@ -29,6 +26,12 @@ git -C package/luci-theme-argon checkout --detach 0546f975a66796a89ff988524290c4
 git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 git -C package/luci-app-argon-config fetch --depth=1 origin 3e099a37c3f71d0de677f1b6b0f4bffd57d91dac
 git -C package/luci-app-argon-config checkout --detach 3e099a37c3f71d0de677f1b6b0f4bffd57d91dac
+
+echo ">> Adding pinned OpenList and its LuCI page..."
+OPENLIST_REV=4bf72661c700d7209e78228f3d3c618443d5b9df
+git clone --depth=1 https://github.com/OpenListTeam/OpenList-OpenWRT.git package/openlist
+git -C package/openlist fetch --depth=1 origin "$OPENLIST_REV"
+git -C package/openlist checkout --detach "$OPENLIST_REV"
 
 echo ">> Adding OpenClash..."
 git clone --depth=1 --filter=blob:none --sparse https://github.com/vernesong/OpenClash.git package/openclash
@@ -48,9 +51,14 @@ patch -d package/luci-app-multi-login -p1 < ../patches/multilogin-auth-check.pat
 echo ">> Patching MultiLogin IPv6 uplink generation..."
 patch -d package/luci-app-multi-login -p1 < ../patches/multilogin-ipv6-uplink.patch
 
+echo ">> Patching MultiLogin for single-uplink operation..."
+patch -d package/luci-app-multi-login -p1 < ../patches/multilogin-single-uplink.patch
+
 echo ">> Adding luci-app-syncdial (from ImmortalWrt)..."
 git clone --depth=1 --filter=blob:none --sparse https://github.com/immortalwrt/luci.git package/immortalwrt-luci
-git -C package/immortalwrt-luci sparse-checkout set applications/luci-app-syncdial
+git -C package/immortalwrt-luci sparse-checkout set applications/luci-app-syncdial applications/luci-app-zerotier
 cp -r package/immortalwrt-luci/applications/luci-app-syncdial package/luci-app-syncdial
 sed -i 's|^include ../../luci.mk$|include $(TOPDIR)/feeds/luci/luci.mk|' package/luci-app-syncdial/Makefile
+cp -r package/immortalwrt-luci/applications/luci-app-zerotier package/luci-app-zerotier
+sed -i 's|^include ../../luci.mk$|include $(TOPDIR)/feeds/luci/luci.mk|' package/luci-app-zerotier/Makefile
 rm -rf package/immortalwrt-luci

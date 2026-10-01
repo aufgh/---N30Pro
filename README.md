@@ -15,21 +15,22 @@
 | 插件 | 功能 | 说明 |
 |------|------|------|
 | LuCI + 中文 | 管理界面 | 简体中文 |
-| mwan3 | 多线多拨 | 校园网多拨 |
+| mwan3 | 多线多拨 | 保留插件，默认关闭服务；单线路使用系统默认路由 |
 | syncdial | 同步多拨 | 配合 mwan3 |
 | MultiLogin | 自动认证 | 多 WAN 校园网自动登录 |
 | UA2F v5.2.0 | HTTP 请求处理 | 包含中文 LuCI 配置页面，默认关闭 |
-| iStore | 软件中心 | 使用支持 APK 的上游版本，包含任务管理依赖 |
+| OpenList | 文件列表与存储接入 | 预装服务及 LuCI 页面，固定上游提交 |
+| ZeroTier | 虚拟组网 | 预装服务及 LuCI 页面，按需配置 |
 | OpenClash | 代理 | Firewall4/nftables 模式 |
 | PassWall | 代理 | nftables 模式，预装 Sing-Box、Geoview、GeoIP/Geosite，默认关闭 |
 | Samba4 | 局域网文件共享 | USB 磁盘共享与服务发现 |
 | SQM | 队列管理 | 按需配置，和硬件流量卸载的兼容性须实机验证 |
 | DDNS / UPnP / WOL | 网络辅助 | 动态域名、端口映射、网络唤醒 |
-| Statistics / ttyd | 监控和终端 | 系统图表、网页终端 |
-| Package Manager | 原生包管理 | 配合 APK，与 iStore 功能不同 |
+| ttyd | 网页终端 | 保留；统计图表及 collectd 采集组件移除 |
+| Package Manager | 原生包管理 | 配合 APK；不预装 iStore |
 | Argon / Argon Config | 管理界面主题 | 同时保留 Bootstrap 主题 |
 
-OpenList 和 ZeroTier 不预装。OpenList 留到刷机后按需从 iStore 安装，届时仍需确认该版本与 APK 系统兼容。完整取舍见 [参考固件软件对照](docs/reference-firmware-packages.md)。
+OpenList 和 ZeroTier 预装；iStore、Statistics 及 collectd 采集组件移除。普通共享依赖由当前 feeds 自动解析。完整取舍见 [参考固件软件对照](docs/reference-firmware-packages.md)。
 
 ## ⚡ USB 支持
 
@@ -47,28 +48,29 @@ OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，OpenClash �
 - `patches/ua2f-release-build.patch` 修正 v5.2.0 源码中仍标为 4.10.2 的包版本，并采用上游后续的覆盖率开关写法，避免 GitHub CI 强制开启测试覆盖率插桩。关闭可选 libbacktrace 构建，保留普通运行日志。
 - 保留上游默认关闭和 NFQUEUE 设置，明确选择 `kmod-nft-queue`、`kmod-nft-tproxy`、`kmod-nf-conntrack-netlink`，与 Firewall4/nftables 配置配套。中文页面提供基础设置；新版本的额外参数仍可通过 UCI 设置。
 - 从旧固件升级且保留配置时，检查并停用旧 UA-Mask/UA3F 服务，再单独验证 UA2F。修改 User-Agent 不能保证消除认证平台的“共享或路由器”提示，编译成功也不能代替路由器上的稳定性验证。
-- GitHub Actions 检查 `make defconfig` 是否保留 UA2F、iStore、MultiLogin、syncdial、OpenClash 及补齐的参考固件插件，随后检查 APK 产物和固件包清单，防止编译成功但插件未装入固件。
+- GitHub Actions 检查 `make defconfig` 是否保留 UA2F、OpenList、ZeroTier、MultiLogin、syncdial、OpenClash 及补齐的参考固件插件，随后检查 APK 产物和固件包清单，防止编译成功但插件未装入固件。
 
-## iStore 集成
+## OpenList、ZeroTier 和包管理
 
-- iStore 使用 [linkease/istore](https://github.com/linkease/istore) 的固定提交 `a97ace34f2da358a015b094d326bba2697697f2e`，包版本为 `0.2.1-r1`，支持 OpenWrt 25.12 的 APK 包管理。
-- 通过独立 `istore` feed 安装 `luci-app-store`、`luci-lib-taskd`、`luci-lib-xterm`、`taskd`，同时保留 `script-utils`、`coreutils-stty`、`libuci-lua`、`mount-utils`、`tar` 等真实依赖。不会改成不存在的通用 `apk` 包依赖，也不会删除 `script-utils` 来绕过依赖问题。
-- 本轮云端复现定位到 `tar` 默认 XZ 支持所需的 `xz-utils` 未启用。生成的 iStore Kconfig 明确包含 `depends on !(PACKAGE_TAR_XZ) || PACKAGE_xz-utils`；补齐 `xz-utils`、`xz` 并检查最终固件清单，避免 tar 和 iStore 一起被配置解析丢弃。这是本轮失败的直接证据，不等于此前所有历史失败都已证明同因。
-- 软件中心可以在刷机后按需安装插件，但每个插件仍须匹配 OpenWrt 版本、CPU 架构和内核。MultiLogin、UA2F、OpenClash 继续预装，不依赖软件中心的目录是否收录。
+- OpenList 使用 [OpenListTeam/OpenList-OpenWRT](https://github.com/OpenListTeam/OpenList-OpenWRT) 的固定提交 `4bf72661c700d7209e78228f3d3c618443d5b9df`，包含 OpenList 4.2.6 和 LuCI 页面。使用官方 feeds 的 Go 工具链，不覆盖整个 Go feed。
+- ZeroTier 服务使用官方 packages feed；LuCI 页面从 ImmortalWrt LuCI 导入，并修正本地包目录的 `luci.mk` 引用。
+- 删除 iStore feed、商店页面和专用 taskd 组件；保留原生 APK Package Manager。Statistics 和 collectd 采集组件不预装。
+- 以上包选择同时由 `make defconfig` 和最终固件 manifest 检查；实际版本和是否编译成功以该次构建产物为准。
 
 ## 多拨与 OpenClash 启动可靠性
 
-- 固件会为 MultiLogin 应用 `patches/multilogin-auth-check.patch`，每 60 秒按虚拟 WAN 主动检查一次真实校园网认证状态。
+- 固件会为 MultiLogin 应用 `patches/multilogin-auth-check.patch`，每 60 秒按配置的 WAN 主动检查一次真实校园网认证状态。
 - MultiLogin 源码固定到 `fb272e8285c65415dea8a9a359a4204b94be06a0`，与现有认证和 IPv6 补丁匹配；升级到上游 v3 需要单独迁移这些补丁。
 - syncdial 从 ImmortalWrt 的 LuCI 目录复制到本地包目录后，修正为引用 `$(TOPDIR)/feeds/luci/luci.mk`，避免相对路径失效而被 `make defconfig` 丢弃。
-- 认证检查不再仅依赖 mwan3 的 ping 结果，避免未认证接口仍能 ping 通、却被错误加入负载均衡的问题。
+- 认证守护进程用 netifd 接口上线状态及 IPv4 地址判断上联是否可用，独立于 mwan3 的跟踪服务；关闭负载均衡后仍继续自动认证。请求保留 `mwan3 use` 的接口绑定，避免误用其他 WAN。
 - 已认证状态采用静默检查，避免持续写入 `/var/log/multilogin.log`；掉线、重登与错误仍会正常记录。
 - MultiLogin 默认启用，OpenClash 默认延迟 30 秒启动，让 DHCP、多拨和校园网认证先完成。
 - OpenClash 默认启用自定义 Fake-IP 过滤，并排除 `login.cqu.edu.cn`，避免 MultiLogin 绑定 WAN 检查时绕过 TUN 却连接到 `198.18.*` Fake-IP。
+- dnsmasq 仅将 `login.cqu.edu.cn` 加入 DNS 重绑定检查例外，允许校园认证服务器返回私网地址，保留整体保护；这与 OpenClash Fake-IP 排除分别生效，不固定服务器 IP。
 - OpenClash 停止时会恢复 `223.5.5.5`、`119.29.29.29` 作为 dnsmasq 上游；切换后应清空客户端旧 Fake-IP DNS 缓存。
-- MultiLogin 快速配置完成后，`balanced` 策略应只保留已认证的 `auto_vwan_*` 成员；未认证的物理 WAN 会造成随机慢速或 HTTPS 粘滞黑洞。
-- 全局 HTTPS 粘滞会把同一客户端固定到单条 WAN，无法聚合多拨带宽；默认保持关闭。
-- mwan3 的 HTTPS 规则只匹配 IPv4；IPv6 使用独立的 `balanced_v6` 策略，不能送入仅含 IPv4 成员的 `balanced` 策略。
+- mwan3 插件保留，首次启动默认停止并禁用其负载均衡服务；MultiLogin 快速配置尊重服务开关，不会自行重新启动。单线路保留一条已认证 macvlan 和其 DHCPv6 上联即可。
+- 如需手动关闭负载均衡，执行 `/etc/init.d/mwan3 stop` 和 `/etc/init.d/mwan3 disable`，无需删除认证接口。若以后恢复多拨，在“系统 → 启动项”启用并启动 mwan3，并重新核对 IPv4/IPv6 策略和成员；本次实机验证范围为单线路。
+- 非 PD 校园网使用 LAN ULA 和 WAN NAT66；DHCPv6 上联设置 `sourcefilter=0`，避免默认路由只匹配 WAN 源地址、导致 LAN 转发和路由器 IPv6 请求无路可走。ICMPv6 控制报文的 Hop Limit 不修改。
 
 可在路由器上使用以下命令检查运行状态：
 
@@ -77,6 +79,9 @@ OpenClash 使用 OpenWrt 25.12 默认的 Firewall4/nftables 后端，OpenClash �
 uci -q get multilogin.global.auth_check_interval
 uci -q get openclash.config.delay_start
 uci -q get openclash.config.custom_fakeip_filter
+uci -q get dhcp.@dnsmasq[0].rebind_domain
+uci -q get network.auto_vwan_1_6.sourcefilter
+curl -6 -I --connect-timeout 8 --max-time 15 https://www.baidu.com/
 nslookup login.cqu.edu.cn 127.0.0.1
 uci -q get mwan3.balanced.use_member
 mwan3 interfaces

@@ -1,0 +1,96 @@
+--- a/etc/multilogin/login_control.bash
++++ b/etc/multilogin/login_control.bash
+@@ -205,14 +205,6 @@
+     fi
+     
+     local current_time=$(date +%s)
+-    local mwan3_status_output=$(mwan3 interfaces 2>/dev/null)
+-    
+-    if [ -z "$mwan3_status_output" ]; then
+-        log "warning" "Failed to get mwan3 status. Retrying in $MAIN_LOOP_SLEEP seconds."
+-        sleep $MAIN_LOOP_SLEEP
+-        continue
+-    fi
+-    
+     for i in "${!logical_interfaces[@]}"; do
+       local interface="${logical_interfaces[$i]}"
+       local time_diff=$((current_time - last_login_time[$i]))
+@@ -221,18 +213,12 @@
+         continue
+       fi
+       
+-      # Use mwan3 only to confirm that the interface exists and tracking is active.
+-      # A captive portal can still answer ping before authentication, so mwan3's
+-      # online state is not sufficient to decide whether login is required.
+-      local interface_line=$(echo "$mwan3_status_output" | grep "interface $interface ")
+-      
+-      if [ -z "$interface_line" ]; then
+-        log "debug" "Interface '$interface' not found in mwan3 status, skipping."
+-        continue
+-      fi
+-
+-      if echo "$interface_line" | grep -q "tracking is down"; then
+-        log "debug" "Interface '$interface' tracking is down, skipping login attempt."
++      # Authentication must continue when load balancing is disabled.
++      # netifd's link/address state is independent of mwan3 tracking.
++      local interface_up=$(ifstatus "$interface" 2>/dev/null | jsonfilter -e '@.up')
++      local interface_ip=$(ifstatus "$interface" 2>/dev/null | jsonfilter -e '@["ipv4-address"][0].address')
++      if [ "$interface_up" != "true" ] || [ -z "$interface_ip" ]; then
++        log "debug" "Interface '$interface' has no active IPv4 uplink, skipping."
+         continue
+       fi
+ 
+--- a/etc/multilogin/quick_setup.sh
++++ b/etc/multilogin/quick_setup.sh
+@@ -92,6 +92,7 @@
+     uci set network.$IPV6_IF.metric="$((20 + i))"
+     uci set network.$IPV6_IF.reqaddress='try'
+     uci set network.$IPV6_IF.reqprefix='no'
++    uci set network.$IPV6_IF.sourcefilter='0'
+     uci set network.$IPV6_IF.multipath='off'
+     NEW_INTERFACES="$NEW_INTERFACES $IPV6_IF"
+ 
+@@ -138,7 +139,10 @@
+ echo "Reloading services..."
+ /etc/init.d/network reload
+ /etc/init.d/firewall reload
+-/etc/init.d/mwan3 reload
++# Respect the user's service switch; quick setup must not re-enable balancing.
++if /etc/init.d/mwan3 enabled; then
++    /etc/init.d/mwan3 reload
++fi
+ 
+ echo "Configuration applied successfully!"
+ exit 0
+--- a/root/usr/libexec/rpcd/multilogin
++++ b/root/usr/libexec/rpcd/multilogin
+@@ -206,6 +206,7 @@
+                     uci set "network.$IPV6_IF.metric=$((20 + i))"
+                     uci set "network.$IPV6_IF.reqaddress=try"
+                     uci set "network.$IPV6_IF.reqprefix=no"
++                    uci set "network.$IPV6_IF.sourcefilter=0"
+                     uci set "network.$IPV6_IF.multipath=off"
+ 
+                     # Firewall: add to wan zone
+@@ -254,7 +255,9 @@
+                 # Apply
+                 /etc/init.d/network reload >/dev/null 2>&1 &
+                 /etc/init.d/firewall reload >/dev/null 2>&1 &
+-                /etc/init.d/mwan3 reload >/dev/null 2>&1 &
++                if /etc/init.d/mwan3 enabled; then
++                    /etc/init.d/mwan3 reload >/dev/null 2>&1 &
++                fi
+ 
+                 printf '{"result":"ok","count":%s,"base_iface":"%s"}\n' "$COUNT" "$BASE_IF"
+                 ;;
+@@ -313,7 +316,9 @@
+ 
+                 /etc/init.d/network reload >/dev/null 2>&1 &
+                 /etc/init.d/firewall reload >/dev/null 2>&1 &
+-                /etc/init.d/mwan3 reload >/dev/null 2>&1 &
++                if /etc/init.d/mwan3 enabled; then
++                    /etc/init.d/mwan3 reload >/dev/null 2>&1 &
++                fi
+ 
+                 printf '{"result":"ok"}\n'
+                 ;;

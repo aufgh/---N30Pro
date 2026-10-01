@@ -155,6 +155,13 @@ uci -q set multilogin.global.enabled='1'
 uci -q set multilogin.global.auth_check_interval='60'
 uci -q commit multilogin
 
+# Default to one uplink. Keep mwan3 installed for explicit later use.
+/etc/init.d/mwan3 stop >/dev/null 2>&1
+/etc/init.d/mwan3 disable
+if [ "$(uci -q get network.wan6.proto)" = 'dhcpv6' ]; then
+    uci -q set network.wan6.sourcefilter='0'
+fi
+
 # OpenWrt 25.12 的全局 DUID 会让多个 macvlan 共用 DHCP 身份。
 # 如果已存在 MultiLogin 虚拟 WAN，则让 IPv6 复用第一个已认证 macvlan，
 # 而不是启用物理 wan6 或额外占用一个校园网账号。
@@ -175,6 +182,7 @@ if uci -q get network.auto_vwan_1 >/dev/null 2>&1; then
         uci -q set "network.$ipv6_interface.metric=$((20 + index))"
         uci -q set "network.$ipv6_interface.reqaddress=try"
         uci -q set "network.$ipv6_interface.reqprefix=no"
+        uci -q set "network.$ipv6_interface.sourcefilter=0"
         uci -q set "network.$ipv6_interface.multipath=off"
         uci -q delete "network.$ipv6_interface.norelease"
 
@@ -240,6 +248,13 @@ uci -q add_list openclash.config.dnsmasq_server='223.5.5.5'
 uci -q add_list openclash.config.dnsmasq_server='119.29.29.29'
 uci -q set openclash.config.dnsmasq_filter_aaaa='0'
 uci -q set dhcp.@dnsmasq[0].filter_aaaa='0'
+
+# 校园认证域名返回私网地址，只为该域名放行 DNS 重绑定检查。
+case " $(uci -q get dhcp.@dnsmasq[0].rebind_domain) " in
+    *" login.cqu.edu.cn "*) ;;
+    *) uci -q add_list dhcp.@dnsmasq[0].rebind_domain='login.cqu.edu.cn' ;;
+esac
+uci -q commit dhcp
 dnsmasq_servers="$(uci -q get dhcp.@dnsmasq[0].server)"
 case "$dnsmasq_servers" in
     *127.0.0.1#7874*) ;;

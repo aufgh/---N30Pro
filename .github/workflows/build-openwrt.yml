@@ -54,7 +54,6 @@ jobs:
         ../diy-part1.sh
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-        ./scripts/feeds install -f -d y -p istore luci-app-store luci-lib-taskd luci-lib-xterm taskd
         ./scripts/feeds install -f -d y -p passwall_luci luci-app-passwall
         ./scripts/feeds install -f -d y -p passwall_packages sing-box geoview v2ray-geoip v2ray-geosite chinadns-ng dns2socks ipt2socks microsocks tcping
         make -C package/openclash/luci-app-openclash/tools/po2lmo
@@ -72,21 +71,13 @@ jobs:
           CONFIG_USE_APK=y
           CONFIG_PACKAGE_ua2f=y
           CONFIG_PACKAGE_luci-app-ua2f=y
-          CONFIG_PACKAGE_luci-app-store=y
-          CONFIG_PACKAGE_luci-lib-taskd=y
-          CONFIG_PACKAGE_luci-lib-xterm=y
-          CONFIG_PACKAGE_taskd=y
-          CONFIG_PACKAGE_script-utils=y
-          CONFIG_PACKAGE_coreutils=y
-          CONFIG_PACKAGE_coreutils-stty=y
-          CONFIG_PACKAGE_libuci-lua=y
-          CONFIG_PACKAGE_mount-utils=y
-          CONFIG_PACKAGE_tar=y
-          CONFIG_PACKAGE_xz-utils=y
-          CONFIG_PACKAGE_xz=y
           CONFIG_PACKAGE_kmod-nft-queue=y
           CONFIG_PACKAGE_kmod-nf-conntrack-netlink=y
           CONFIG_PACKAGE_luci-app-multilogin=y
+          CONFIG_PACKAGE_openlist=y
+          CONFIG_PACKAGE_luci-app-openlist=y
+          CONFIG_PACKAGE_zerotier=y
+          CONFIG_PACKAGE_luci-app-zerotier=y
           CONFIG_PACKAGE_mwan3=y
           CONFIG_PACKAGE_luci-app-mwan3=y
           CONFIG_PACKAGE_luci-app-syncdial=y
@@ -122,7 +113,6 @@ jobs:
           CONFIG_PACKAGE_luci-app-passwall=y
           CONFIG_PACKAGE_luci-app-samba4=y
           CONFIG_PACKAGE_luci-app-sqm=y
-          CONFIG_PACKAGE_luci-app-statistics=y
           CONFIG_PACKAGE_luci-app-ttyd=y
           CONFIG_PACKAGE_luci-app-upnp=y
           CONFIG_PACKAGE_luci-app-wol=y
@@ -158,13 +148,6 @@ jobs:
           CONFIG_PACKAGE_luci-proto-wireguard=y
           CONFIG_PACKAGE_relayd=y
           CONFIG_PACKAGE_luci-proto-relay=y
-          CONFIG_PACKAGE_collectd-mod-cpu=y
-          CONFIG_PACKAGE_collectd-mod-interface=y
-          CONFIG_PACKAGE_collectd-mod-iwinfo=y
-          CONFIG_PACKAGE_collectd-mod-load=y
-          CONFIG_PACKAGE_collectd-mod-memory=y
-          CONFIG_PACKAGE_collectd-mod-network=y
-          CONFIG_PACKAGE_collectd-mod-rrdtool=y
           CONFIG_PACKAGE_ddns-scripts-services=y
           CONFIG_PACKAGE_avahi-dbus-daemon=y
           CONFIG_PACKAGE_wsdd2=y
@@ -178,18 +161,14 @@ jobs:
           }
         done
         if [ "$missing" -ne 0 ]; then
-          grep -E 'CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|coreutils|tar|mount-utils)|CONFIG_USE_APK' .config || true
-          for package in luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils tar; do
-            awk -v symbol="PACKAGE_$package" '$1 ~ /^(menu)?config$/ { output = ($2 == symbol) } output { print }' tmp/.config-package.in
-          done
           exit 1
         fi
         if grep -Fqx 'CONFIG_PACKAGE_dnsmasq=y' .config; then
           echo "::error::dnsmasq conflicts with dnsmasq-full"
           exit 1
         fi
-        if grep -Eq '^CONFIG_PACKAGE_(zerotier|luci-app-zerotier|openlist|luci-app-openlist)=[ym]$' .config; then
-          echo "::error::ZeroTier and OpenList must not be preinstalled"
+        if grep -Eq '^CONFIG_PACKAGE_(luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|luci-app-statistics|collectd|collectd-mod-[^=]+)=[ym]$' .config; then
+          echo "::error::iStore and statistics collectors must not be preinstalled"
           exit 1
         fi
         if grep -Eq '^CONFIG_PACKAGE_(UAmask|luci-app-uamask|ua3f|luci-app-ua3f)=[ym]$' .config; then
@@ -211,11 +190,11 @@ jobs:
         required_artifacts=(
           'ua2f-*.apk'
           'luci-app-ua2f-*.apk'
-          'luci-app-store-*.apk'
-          'luci-lib-taskd-*.apk'
-          'luci-lib-xterm-*.apk'
-          'taskd-*.apk'
           'luci-app-multilogin-*.apk'
+          'openlist-*.apk'
+          'luci-app-openlist-*.apk'
+          'zerotier-*.apk'
+          'luci-app-zerotier-*.apk'
           'luci-app-openclash-*.apk'
           'luci-app-passwall-*.apk'
           'sing-box-*.apk'
@@ -234,14 +213,14 @@ jobs:
           echo "::error::Firmware package manifest is missing"
           exit 1
         fi
-        for package in ua2f luci-app-ua2f luci-app-store luci-lib-taskd luci-lib-xterm taskd script-utils coreutils-stty tar xz-utils xz luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-statistics luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite; do
+        for package in ua2f luci-app-ua2f luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite openlist luci-app-openlist zerotier luci-app-zerotier; do
           grep -Eq "^${package} - " "$manifest" || {
             echo "::error::Required package is missing from the firmware: $package"
             exit 1
           }
         done
-        if grep -Eiq '^(UAmask|luci-app-uamask|ua3f|luci-app-ua3f|zerotier|luci-app-zerotier|openlist|luci-app-openlist) - ' "$manifest"; then
-          echo "::error::An excluded UA-Mask, UA3F, ZeroTier or OpenList package was found in the firmware"
+        if grep -Eiq '^(UAmask|luci-app-uamask|ua3f|luci-app-ua3f|luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|luci-app-statistics|collectd|collectd-mod-[^ ]+) - ' "$manifest"; then
+          echo "::error::An excluded UA-Mask, UA3F, iStore or statistics package was found in the firmware"
           exit 1
         fi
         echo "status=success" >> $GITHUB_OUTPUT

@@ -12,6 +12,7 @@ on:
       - 'files/**'
       - 'tests/**'
       - '.github/workflows/build-openwrt.yml'
+      - '.github/scripts/**'
   repository_dispatch:
   workflow_dispatch:
 
@@ -39,6 +40,7 @@ jobs:
       run: |
         python3 tests/test_ua3f_lifecycle.py
         python3 tests/test_firmware_trim.py
+        python3 tests/test_ci_build_resources.py
 
     - name: Initialize environment
       env:
@@ -187,7 +189,7 @@ jobs:
       id: compile
       run: |
         cd openwrt
-        make -j$(nproc) || make -j1 V=s
+        bash ../.github/scripts/build-firmware.sh
         required_artifacts=(
           'ua3f-*.apk'
           'hev-socks5-tproxy-*.apk'
@@ -229,6 +231,15 @@ jobs:
         fi
         echo "status=success" >> $GITHUB_OUTPUT
         echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+    - name: Preserve build diagnostics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+        path: openwrt/ci-logs/
+        if-no-files-found: ignore
+        retention-days: 7
 
     - name: Organize files
       id: organize

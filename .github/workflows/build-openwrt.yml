@@ -10,6 +10,7 @@ on:
       - 'diy-part2.sh'
       - 'patches/**'
       - 'files/**'
+      - 'tests/**'
       - '.github/workflows/build-openwrt.yml'
   repository_dispatch:
   workflow_dispatch:
@@ -33,6 +34,9 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Validate UA3F lifecycle
+      run: python3 tests/test_ua3f_lifecycle.py
 
     - name: Initialize environment
       env:

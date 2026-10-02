@@ -4,7 +4,7 @@ set -eu
 
 TABLE=31001
 PREF=1000
-MARK=0x01000000/0xff000000
+MARK=0x1000000/0xff000000
 NFT_TABLE=n30pro_ua3f
 RUN_DIR=/var/run/ua3f-tproxy
 
@@ -17,6 +17,7 @@ cleanup() {
 }
 
 fail() {
+    cleanup
     logger -t ua3f-tproxy "$*"
     exit 1
 }
@@ -31,9 +32,8 @@ case "${1:-reload}" in
     *) exit 2 ;;
 esac
 
-cleanup
-[ "$(uci -q get ua3f.enabled.enabled || true)" = 1 ] || exit 0
-[ "$(uci -q get ua3f.main.transparent_proxy || true)" = 1 ] || exit 0
+[ "$(uci -q get ua3f.enabled.enabled || true)" = 1 ] || { cleanup; exit 0; }
+[ "$(uci -q get ua3f.main.transparent_proxy || true)" = 1 ] || { cleanup; exit 0; }
 [ "$(uci -q get ua3f.main.server_mode || true)" = SOCKS5 ] || fail 'Transparent profile requires SOCKS5 mode.'
 [ "$(uci -q get ua3f.main.bind || true)" = 127.0.0.1 ] || fail 'Transparent profile requires a loopback SOCKS5 listener.'
 
@@ -77,14 +77,29 @@ if [ "$(uci -q get ua3f.main.proxy_https || true)" != 1 ]; then
     https_rule='tcp dport 443 return'
 fi
 
-# Only our high mark byte participates in policy routing; retain mwan3 low bits.
-trap 'cleanup' EXIT
-ip -4 route add local 0.0.0.0/0 dev lo table "$TABLE"
-ip -4 rule add pref "$PREF" fwmark "$MARK" lookup "$TABLE"
-ip -6 route add local ::/0 dev lo table "$TABLE"
-ip -6 rule add pref "$PREF" fwmark "$MARK" lookup "$TABLE"
+# Keep active rules and routes while preparing a firewall reload. Removing them
+# first creates a window in which LAN TCP bypasses the transparent proxy.
+active=0
+nft list table inet "$NFT_TABLE" >/dev/null 2>&1 && active=1
+rollback() {
+    [ "$active" -eq 1 ] || cleanup
+}
+trap 'rollback' EXIT
 
-cat > "$RUN_DIR/rules.nft" <<EOF
+# Only our high mark byte participates in policy routing; retain mwan3 low bits.
+ip -4 route replace local 0.0.0.0/0 dev lo table "$TABLE"
+ip -6 route replace local ::/0 dev lo table "$TABLE"
+for family in -4 -6; do
+    if ! ip "$family" rule show pref "$PREF" | grep -Fq "fwmark $MARK lookup $TABLE"; then
+        ip "$family" rule add pref "$PREF" fwmark "$MARK" lookup "$TABLE"
+    fi
+done
+
+# Deletion and replacement are submitted in one nft transaction. Validation or
+# loading failure leaves the previous active table and policy routes intact.
+: > "$RUN_DIR/rules.nft"
+[ "$active" -ne 1 ] || printf 'delete table inet %s\n' "$NFT_TABLE" >> "$RUN_DIR/rules.nft"
+cat >> "$RUN_DIR/rules.nft" <<EOF
 table inet $NFT_TABLE {
     set lan4 { type ipv4_addr; flags interval; elements = { $lan4 }; }
     set lan6 { type ipv6_addr; flags interval; elements = { $lan6 }; }

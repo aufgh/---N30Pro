@@ -1,14 +1,5 @@
 --- a/openwrt/Makefile
 +++ b/openwrt/Makefile
-@@ -17,7 +17,7 @@
- PKG_BUILD_FLAGS:=no-mips16
- 
- GO_PKG:=github.com/sunbk201/ua3f
--GO_PKG_LDFLAGS_X:=main.appVersion=v$(PKG_VERSION)
-+GO_PKG_LDFLAGS_X:=github.com/sunbk201/ua3f/cmd.AppVersion=v$(PKG_VERSION)
- 
- include $(INCLUDE_DIR)/package.mk
- include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 @@ -28,7 +28,7 @@
  	SUBMENU:=Web Servers/Proxies
  	TITLE:=Advanced HTTP Rewriting Proxy

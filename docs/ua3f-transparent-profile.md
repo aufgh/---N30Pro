@@ -75,6 +75,10 @@ uci -q get firewall.@defaults[0].flow_offloading_hw
 
 正常启用时应看到两个地址族的 TPROXY 规则、`fwmark 0x1000000/0xff000000`、路由表 31001 的 local 路由；IPv4 与 IPv6 计数应随实际测试请求增长。路由器自身 `curl -6` 不经过 LAN 接管链，不能代替 LAN 端验证。客户端测试时应关闭或绕开客户端代理/TUN，并确认请求从连接路由器的接口发出。
 
+正常防火墙重载保持已有策略路由，通过同一个 `nft -f` 事务删除并替换本项目表；新规则检查或加载失败时保留旧表。只有明确停止、关闭透明配置或发现不兼容配置时才清理接管。本版没有实现代理尚未启动或被主动停止时的强制断网策略。
+
 编译前已完成 shell/YAML/LuCI 语法、服务启停及异常回滚的模拟检查；规则已通过现有路由器 `nft -c`。校验官方发布包 SHA256 后，在路由器临时端口运行 UA3F/hev，确认双栈透明监听以及 UA3F SOCKS5 到 IPv4、IPv6 HTTPS 的 200 响应；测试结束停止临时进程，没有应用新接管规则。刷机后的完整 LAN TPROXY 路径、明文 HTTP UA 改写、重启/防火墙重载、吞吐和长期稳定性仍待实测。
+
+2026-10-02 升级后已补充完整 LAN 路径测试，结果和重载空窗修复详见 [实机实验记录](ua3f-live-verification.md)。吞吐、代理服务重启期间的行为、整机重启和长期稳定性未据此验证。
 
 GitHub Actions 检查 defconfig、APK 产物和 manifest，要求 UA3F、hev、LuCI 兼容依赖及保留的应用装入固件，拒绝 UA2F、UA-Mask、iStore 和 Statistics/collectd。

@@ -1,13 +1,10 @@
 #!/bin/bash
-# Keep build pressure bounded and preserve resource evidence in Actions logs.
+# Use available CPUs for the build and preserve resource evidence in Actions logs.
 set -euo pipefail
 
 mkdir -p ci-logs
 cpu_count=$(nproc)
-jobs=2
-if [ "$cpu_count" -lt "$jobs" ]; then
-    jobs=$cpu_count
-fi
+jobs=$cpu_count
 interval=${RESOURCE_MONITOR_INTERVAL:-60}
 if ! [[ "$interval" =~ ^[1-9][0-9]*$ ]]; then
     echo "Invalid resource monitor interval" >&2

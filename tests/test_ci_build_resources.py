@@ -1,4 +1,4 @@
-"""Exercise the build wrapper's job bound, retry, exit status and diagnostics."""
+"""Exercise CPU-based parallelism, retry, exit status and diagnostics."""
 from pathlib import Path
 import json
 import os
@@ -45,20 +45,20 @@ sys.exit(codes[min(index, len(codes)-1)])
             self.assertIn("[ci-resource]", resources)
             return result.returncode, calls
 
-    def test_parallelism_bounded(self):
-        self.assertEqual(self.run_build([0], 16), (0, [["-j2"]]))
+    def test_parallelism_matches_available_cpus(self):
+        self.assertEqual(self.run_build([0], 16), (0, [["-j16"]]))
         self.assertEqual(self.run_build([0], 1), (0, [["-j1"]]))
 
     def test_one_verbose_retry(self):
         self.assertEqual(self.run_build([2, 0]),
-                         (0, [["-j2"], ["-j1", "V=s"]]))
+                         (0, [["-j4"], ["-j1", "V=s"]]))
 
     def test_final_failure_preserved(self):
         self.assertEqual(self.run_build([2, 7]),
-                         (7, [["-j2"], ["-j1", "V=s"]]))
+                         (7, [["-j4"], ["-j1", "V=s"]]))
 
     def test_signal_exit_does_not_retry(self):
-        self.assertEqual(self.run_build([143]), (143, [["-j2"]]))
+        self.assertEqual(self.run_build([143]), (143, [["-j4"]]))
 
 
 if __name__ == "__main__":

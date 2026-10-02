@@ -35,8 +35,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Validate UA3F lifecycle
-      run: python3 tests/test_ua3f_lifecycle.py
+    - name: Validate local profiles
+      run: |
+        python3 tests/test_ua3f_lifecycle.py
+        python3 tests/test_firmware_trim.py
 
     - name: Initialize environment
       env:
@@ -59,8 +61,6 @@ jobs:
         ../diy-part1.sh
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-        ./scripts/feeds install -f -d y -p passwall_luci luci-app-passwall
-        ./scripts/feeds install -f -d y -p passwall_packages sing-box geoview v2ray-geoip v2ray-geosite chinadns-ng dns2socks ipt2socks microsocks tcping
         make -C package/openclash/luci-app-openclash/tools/po2lmo
         sudo make -C package/openclash/luci-app-openclash/tools/po2lmo install
 
@@ -87,7 +87,6 @@ jobs:
           CONFIG_PACKAGE_luci-app-zerotier=y
           CONFIG_PACKAGE_mwan3=y
           CONFIG_PACKAGE_luci-app-mwan3=y
-          CONFIG_PACKAGE_luci-app-syncdial=y
           CONFIG_PACKAGE_luci-app-openclash=y
           CONFIG_PACKAGE_firewall4=y
           CONFIG_PACKAGE_nftables-json=y
@@ -117,20 +116,11 @@ jobs:
           CONFIG_PACKAGE_luci-app-ddns=y
           CONFIG_PACKAGE_luci-app-firewall=y
           CONFIG_PACKAGE_luci-app-package-manager=y
-          CONFIG_PACKAGE_luci-app-passwall=y
           CONFIG_PACKAGE_luci-app-samba4=y
           CONFIG_PACKAGE_luci-app-sqm=y
           CONFIG_PACKAGE_luci-app-ttyd=y
           CONFIG_PACKAGE_luci-app-upnp=y
           CONFIG_PACKAGE_luci-app-wol=y
-          CONFIG_PACKAGE_luci-app-passwall_Nftables_Transparent_Proxy=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geodata=y
-          CONFIG_PACKAGE_sing-box=y
-          CONFIG_PACKAGE_geoview=y
-          CONFIG_PACKAGE_v2ray-geoip=y
-          CONFIG_PACKAGE_v2ray-geosite=y
           CONFIG_PACKAGE_block-mount=y
           CONFIG_PACKAGE_e2fsprogs=y
           CONFIG_PACKAGE_kmod-fs-exfat=y
@@ -182,6 +172,10 @@ jobs:
           echo "::error::UA-Mask and UA2F must not be included alongside UA3F"
           exit 1
         fi
+        if grep -Eq '^CONFIG_PACKAGE_(luci-app-passwall|luci-app-passwall2|luci-i18n-passwall[^=]*|sing-box|geoview|v2ray-geoip|v2ray-geosite|luci-app-syncdial)=[ym]$' .config; then
+          echo "::error::PassWall cores/data and SyncDial must not be included"
+          exit 1
+        fi
 
     - name: Download package
       run: |
@@ -203,8 +197,6 @@ jobs:
           'zerotier-*.apk'
           'luci-app-zerotier-*.apk'
           'luci-app-openclash-*.apk'
-          'luci-app-passwall-*.apk'
-          'sing-box-*.apk'
           'luci-theme-argon-*.apk'
         )
         for pattern in "${required_artifacts[@]}"; do
@@ -220,14 +212,19 @@ jobs:
           echo "::error::Firmware package manifest is missing"
           exit 1
         fi
-        for package in ua3f hev-socks5-tproxy luci-app-multilogin luci-app-syncdial luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-passwall luci-app-samba4 luci-app-sqm luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap sing-box geoview v2ray-geoip v2ray-geosite openlist luci-app-openlist zerotier luci-app-zerotier; do
+        for package in ua3f hev-socks5-tproxy luci-app-multilogin luci-app-openclash luci-app-argon-config luci-app-ddns luci-app-firewall luci-app-package-manager luci-app-samba4 luci-app-sqm luci-app-ttyd luci-app-upnp luci-app-wol luci-theme-argon luci-theme-bootstrap mwan3 openlist luci-app-openlist zerotier luci-app-zerotier; do
           grep -Eq "^${package} - " "$manifest" || {
             echo "::error::Required package is missing from the firmware: $package"
             exit 1
           }
         done
-        if grep -Eiq '^(UAmask|luci-app-uamask|ua2f|luci-app-ua2f|luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|luci-app-statistics|collectd|collectd-mod-[^ ]+) - ' "$manifest"; then
-          echo "::error::An excluded UA-Mask, UA2F, iStore or statistics package was found in the firmware"
+        if grep -Eiq '^(UAmask|luci-app-uamask|ua2f|luci-app-ua2f|luci-app-store|luci-lib-taskd|luci-lib-xterm|taskd|script-utils|luci-app-statistics|collectd|collectd-mod-[^ ]+|luci-app-passwall|luci-app-passwall2|luci-i18n-passwall[^ ]*|sing-box|geoview|v2ray-geoip|v2ray-geosite|luci-app-syncdial) - ' "$manifest"; then
+          echo "::error::An excluded package was found in the firmware"
+          exit 1
+        fi
+        dashboard_dir="$(find build_dir -type d -path '*/root-mediatek/usr/share/openclash/ui' -print -quit)"
+        if [ -z "$dashboard_dir" ] || [ ! -s "$dashboard_dir/metacubexd/index.html" ] || [ -e "$dashboard_dir/zashboard" ]; then
+          echo "::error::The firmware must contain only the MetaCubeXD dashboard"
           exit 1
         fi
         echo "status=success" >> $GITHUB_OUTPUT

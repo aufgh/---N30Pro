@@ -1,0 +1,10 @@
+--- a/Makefile
++++ b/Makefile
+@@ -135,5 +135,6 @@
+ 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
+ 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/*.*.lmo $(1)/usr/lib/lua/luci/i18n/
+-	$(CP) $(PKG_BUILD_DIR)/root/* $(1)/
++	# Keep MetaCubeXD; omit Zashboard when creating the package payload.
++	tar -C "$(PKG_BUILD_DIR)/root" --exclude="./usr/share/openclash/ui/zashboard" -cf - . | tar -C "$(1)" -xf -
+ 	$(CP) $(PKG_BUILD_DIR)/luasrc/* $(1)/usr/lib/lua/luci/
+ endef

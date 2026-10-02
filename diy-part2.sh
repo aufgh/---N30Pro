@@ -271,6 +271,7 @@ esac
 
 uci -q set openclash.config.delay_start='30'
 uci -q set openclash.config.custom_fakeip_filter='1'
+uci -q set openclash.config.default_dashboard='metacubexd'
 uci -q commit openclash
 
 fakeip_filter='/etc/openclash/custom/openclash_custom_fake_filter.list'

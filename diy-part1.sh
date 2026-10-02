@@ -9,9 +9,6 @@ git clone --depth=1 --branch v3.6.0 https://github.com/SunBK201/UA3F.git package
 test "$(git -C package/UA3F rev-parse HEAD)" = "$UA3F_REV"
 patch -d package/UA3F -p1 < ../patches/ua3f-openwrt-nft.patch
 
-echo ">> Adding pinned PassWall feeds before the default feeds..."
-sed -i '1i src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git^cadc39bc5cfc67098de4797d52b1f12673351f09\nsrc-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git^1a826389f1920dbfcab1dbb811776347cc5fdfa8' feeds.conf.default
-
 echo ">> Adding Argon theme and its configuration page..."
 git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 git -C package/luci-theme-argon fetch --depth=1 origin 0546f975a66796a89ff988524290c4a2e2d01855
@@ -29,6 +26,7 @@ git -C package/openlist checkout --detach "$OPENLIST_REV"
 echo ">> Adding OpenClash..."
 git clone --depth=1 --filter=blob:none --sparse https://github.com/vernesong/OpenClash.git package/openclash
 git -C package/openclash sparse-checkout set luci-app-openclash
+patch -d package/openclash/luci-app-openclash -p1 < ../patches/openclash-single-dashboard.patch
 
 echo ">> Adding luci-app-multi-login..."
 # Keep the source revision used by the existing authentication/IPv6 patches.
@@ -47,11 +45,9 @@ patch -d package/luci-app-multi-login -p1 < ../patches/multilogin-ipv6-uplink.pa
 echo ">> Patching MultiLogin for single-uplink operation..."
 patch -d package/luci-app-multi-login -p1 < ../patches/multilogin-single-uplink.patch
 
-echo ">> Adding luci-app-syncdial (from ImmortalWrt)..."
-git clone --depth=1 --filter=blob:none --sparse https://github.com/immortalwrt/luci.git package/immortalwrt-luci
-git -C package/immortalwrt-luci sparse-checkout set applications/luci-app-syncdial applications/luci-app-zerotier
-cp -r package/immortalwrt-luci/applications/luci-app-syncdial package/luci-app-syncdial
-sed -i 's|^include ../../luci.mk$|include $(TOPDIR)/feeds/luci/luci.mk|' package/luci-app-syncdial/Makefile
-cp -r package/immortalwrt-luci/applications/luci-app-zerotier package/luci-app-zerotier
+echo ">> Adding the ZeroTier LuCI page (from ImmortalWrt)..."
+# Keep the donor checkout outside package/ to avoid duplicate package definitions.
+git clone --depth=1 --filter=blob:none --sparse https://github.com/immortalwrt/luci.git ../immortalwrt-luci-source
+git -C ../immortalwrt-luci-source sparse-checkout set applications/luci-app-zerotier
+cp -r ../immortalwrt-luci-source/applications/luci-app-zerotier package/luci-app-zerotier
 sed -i 's|^include ../../luci.mk$|include $(TOPDIR)/feeds/luci/luci.mk|' package/luci-app-zerotier/Makefile
-rm -rf package/immortalwrt-luci
